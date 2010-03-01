@@ -1,0 +1,1 @@
+%systemroot%\system32\regsvr32.exe -U "YARSE3.dll"

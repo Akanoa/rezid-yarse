@@ -1,0 +1,33 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<BorlandProject>
+	<Transactions>
+    <Transaction>2010/02/25 22:48:14.359.pas,E:\Projects\Rezid\SearchEngine\NExplorerClient3\NewSearch.pas=</Transaction>
+    <Transaction>2010/02/25 22:48:14.359.dfm,E:\Projects\Rezid\SearchEngine\NExplorerClient3\NewSearch.dfm=</Transaction>
+    <Transaction>2010/02/25 22:48:26.656.pas,E:\Projects\Rezid\SearchEngine\NExplorerClient3\ShellView2.pas=</Transaction>
+    <Transaction>2010/02/25 22:48:35.015.pas,E:\Projects\Rezid\SearchEngine\NExplorerClient3\ShellView.pas=</Transaction>
+    <Transaction>2010/02/25 22:48:37.671.pas,E:\Projects\Rezid\SearchEngine\NExplorerClient3\ShellForm.pas=</Transaction>
+    <Transaction>2010/02/25 22:48:37.671.dfm,E:\Projects\Rezid\SearchEngine\NExplorerClient3\ShellForm.dfm=</Transaction>
+    <Transaction>2010/02/25 22:48:48.875.pas,E:\Projects\Rezid\SearchEngine\NExplorerClient3\FSearchResult.pas=</Transaction>
+    <Transaction>2010/02/25 22:48:48.875.dfm,E:\Projects\Rezid\SearchEngine\NExplorerClient3\FSearchResult.dfm=</Transaction>
+    <Transaction>2010/02/25 22:48:50.937.pas,E:\Projects\Rezid\SearchEngine\NExplorerClient3\FOfflineBrowserHosts.pas=</Transaction>
+    <Transaction>2010/02/25 22:48:50.937.dfm,E:\Projects\Rezid\SearchEngine\NExplorerClient3\FOfflineBrowserHosts.dfm=</Transaction>
+    <Transaction>2010/02/25 22:48:53.156.pas,E:\Projects\Rezid\SearchEngine\NExplorerClient3\FMainMenu.pas=</Transaction>
+    <Transaction>2010/02/25 22:48:53.156.dfm,E:\Projects\Rezid\SearchEngine\NExplorerClient3\FMainMenu.dfm=</Transaction>
+    <Transaction>2010/02/25 22:49:13.218.pas,E:\Projects\Rezid\SearchEngine\NExplorerClient3\SearchEngineFacade.pas=</Transaction>
+    <Transaction>2010/02/25 22:49:15.796.pas,E:\Projects\Rezid\SearchEngine\NExplorerClient3\Concrete\IndexeurBleuSearchEngine.pas=</Transaction>
+    <Transaction>2010/02/25 22:49:35.625.pas,E:\Projects\Rezid\SearchEngine\NExplorerClient3\ShellFolder2.pas=</Transaction>
+    <Transaction>2010/02/25 22:49:38.406.pas,E:\Projects\Rezid\SearchEngine\NExplorerClient3\Settings.pas=</Transaction>
+    <Transaction>2010/02/25 22:49:39.937.pas,E:\Projects\Rezid\SearchEngine\NExplorerClient3\Searching.pas=</Transaction>
+    <Transaction>2010/02/25 22:49:41.437.pas,E:\Projects\Rezid\SearchEngine\NExplorerClient3\RTTIFunctions.pas=</Transaction>
+    <Transaction>2010/02/25 22:49:42.828.pas,E:\Projects\Rezid\SearchEngine\NExplorerClient3\OfflineBrowsing.pas=</Transaction>
+    <Transaction>2010/02/25 22:49:46.406.pas,E:\Projects\Rezid\SearchEngine\NExplorerClient3\mysql.pas=</Transaction>
+    <Transaction>2010/02/26 18:24:55.421.pas,E:\Projects\Rezid\SearchEngine\NExplorerClient3\Unit5.pas=E:\Projects\Rezid\SearchEngine\NExplorerClient3\ShellFolderContent.pas</Transaction>
+    <Transaction>2010/02/26 18:25:33.109.pas,E:\Projects\Rezid\SearchEngine\NExplorerClient3\ShellFolderContent.pas=</Transaction>
+    <Transaction>2010/02/26 18:29:47.750.pas,E:\Projects\Rezid\SearchEngine\NExplorerClient3\Unit5.pas=E:\Projects\Rezid\SearchEngine\NExplorerClient3\ShellFolderD.pas</Transaction>
+    <Transaction>2010/02/26 18:31:34.234.pas,E:\Projects\Rezid\SearchEngine\NExplorerClient3\Unit5.pas=E:\Projects\Rezid\SearchEngine\NExplorerClient3\PIDLs.pas</Transaction>
+    <Transaction>2010/02/26 18:39:05.468.pas,E:\Projects\Rezid\SearchEngine\NExplorerClient3\Unit5.pas=E:\Projects\Rezid\SearchEngine\NExplorerClient3\ShellFolders\ShellFolderMainMenu.pas</Transaction>
+    <Transaction>2010/02/26 18:39:14.906.pas,E:\Projects\Rezid\SearchEngine\NExplorerClient3\PlateformSDK\ShellApi2.pas=</Transaction>
+    <Transaction>2010/02/26 18:39:14.921.pas,E:\Projects\Rezid\SearchEngine\NExplorerClient3\PlateformSDK\ShlExt.pas=</Transaction>
+    <Transaction>2010/02/26 18:39:14.921.pas,E:\Projects\Rezid\SearchEngine\NExplorerClient3\PlateformSDK\ShlObj2.pas=</Transaction>
+  </Transactions>
+</BorlandProject>
