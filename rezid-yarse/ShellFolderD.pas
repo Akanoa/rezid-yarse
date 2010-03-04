@@ -27,7 +27,7 @@ type
   end;
 
   TShellFolderD = class
-    private
+    protected
       SelfPIDL : TPIDLStructure;
     public
       constructor Create(PIDL : TPIDLStructure); virtual;
@@ -39,7 +39,7 @@ type
       function GetDefaultColumn(var pSort: Cardinal; var pDisplay: Cardinal): HRESULT; virtual; stdcall; abstract;
       function GetDefaultColumnState(iColumn: Cardinal; var pcsFlags: Cardinal): HRESULT; virtual; stdcall; abstract;
       function GetDetailsOf(pidl: PItemIDList; iColumn: Cardinal; var psd: _SHELLDETAILS): HRESULT; virtual; stdcall; abstract;
-      function GetPIDLShellFolderD(pidl:PItemIDList):TShellFolderD; virtual; abstract;
+      function CompareIDs(pidl1, pidl2:PItemIDList) : integer; virtual; abstract;
     protected
   end;
 
@@ -97,9 +97,39 @@ type
       virtual; stdcall; abstract;
   end;
 
+function GetPIDLShellFolderD(pidl : PITEMIDLIST) : TShellFolderD;
+function GetRootShellFolderD(pidl : PITEMIDLIST) : TShellFolderD;
+
 implementation
 
-uses ConstsAndVars, SysUtils;
+uses ConstsAndVars, SysUtils, ShellFolderMainMenu, ShellFolderOfflineBrowserRoot, ShellFolderOfflineBrowserHost;
+
+function GetPIDLShellFolderD(pidl : PITEMIDLIST) : TShellFolderD;
+var
+  pidl_structure : TPIDLStructure;
+begin
+  Result := nil;
+  pidl_structure := PIDL_To_TPIDLStructure(pidl);
+  case pidl_structure.ItemType of
+    ITEM_MAIN_MENU :
+      begin
+        case pidl_structure.ItemInfo1 of
+          ITEM_MAIN_MENU_OFFLINE_BROWSER :
+            Result := TShellFolderOfflineBrowserRoot.Create(pidl_structure);
+        end;
+      end;
+    ITEM_OFFLINE_BROWSER_HOST :
+      Result := TShellFolderOfflineBrowserHost.Create(pidl_structure);
+  end;
+end;
+
+function GetRootShellFolderD(pidl : PITEMIDLIST) : TShellFolderD;
+var
+  pidl_structure : TPIDLStructure;
+begin
+  pidl_structure := PIDL_To_TPIDLStructure(pidl);
+  Result := TShellFolderMainMenu.Create(pidl_structure);
+end;
 
 function TEasyInterfacedObject._AddRef: Integer;
 begin

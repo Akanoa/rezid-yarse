@@ -38,7 +38,8 @@ uses
   ItemProp in 'Includes\ItemProp.pas',
   mysql in 'Includes\mysql.pas',
   NewSearch in 'Forms\NewSearch.pas' {FNewSearch},
-  ShellFolderOfflineBrowserRoot in 'ShellFolders\ShellFolderOfflineBrowserRoot.pas';
+  ShellFolderOfflineBrowserRoot in 'ShellFolders\ShellFolderOfflineBrowserRoot.pas',
+  ShellFolderOfflineBrowserHost in 'ShellFolders\ShellFolderOfflineBrowserHost.pas';
 
 {$R *.res}
 {$R AdditionalRessources.res}
