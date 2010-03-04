@@ -18,7 +18,7 @@ const
      CLSID_CustomShellFolder:TGUID='{822B56D4-2343-4C1C-B816-09EB10E6F081}';
 
 type
-   TCustomShellFolder=class(TComObject, IShellFolder, IShellFolder2, IPersistFolder, IPersistFolder2{, IPersistIDList})
+   TCustomShellFolder=class(TComObject, IShellFolder, IShellFolder2, IPersistFolder, IPersistFolder2, IPersistIDList)
    private
      FShellFolderD : TShellFolderD;
      //This folder really has some sex-aPIDL
@@ -76,8 +76,8 @@ type
       function GetFolderTargetInfo(var ppfti : TPersistFolderTargetInfo) : HResult; stdcall;
 
       {IPersistIDList}
-//      function GetIDList(var pidl: PItemIDList): HRESULT; stdcall;
-//      function SetIDList(pidl: PItemIDList): HRESULT; stdcall;
+      function GetIDList(var pidl: PItemIDList): HRESULT; stdcall;
+      function SetIDList(pidl: PItemIDList): HRESULT; stdcall;
 
       constructor Create(dShellFolderD : TShellFolderD);
       destructor Destroy; override;
@@ -191,7 +191,8 @@ begin
   Result := E_NOTIMPL;
     if IsEqualGUID(riid, IShellFolder) or IsEqualGUID(riid, IShellFolder2) then
       begin
-        dShellFolderD := FShellFolderD.GetPIDLShellFolderD(pidl);
+        dShellFolderD := GetPIDLShellFolderD(GetPointerToLastID(pidl));
+//        dShellFolderD := FShellFolderD.GetPIDLShellFolderD(pidl);
         if Assigned(dShellFolderD) then
           begin
             APIDL := AppendPIDL(SeInitPIDL, pidl);
@@ -200,7 +201,6 @@ begin
             pShellFolder := TCustomShellFolder.Create(dShellFolderD);
             pShellFolder.PersistInitialize(APIDL);
             (pShellFolder as IShellFolder).QueryInterface(riid, ppvOut);
-            pShellFolder._AddRef;
             FreeAndNilPIDL(APIDL);
             Result := S_OK;
           end;
@@ -218,8 +218,7 @@ function TCustomShellFolder.CompareIDs(lParam:LPARAM;
       pidl1,pidl2:PItemIDList):HResult;
 begin
 //  ShowMessage('TCustomShellFolder.CompareIDs');
-  Result := 0;
-  Exit;
+  Result := FShellFolderD.CompareIDs(pidl1, pidl2);
 end;
 
 {constructor TCustomShellFolder.Create(dShellFolderD : TShellFolderD);
@@ -368,21 +367,21 @@ begin
   Result := E_NOTIMPL
 end;
 
-//function TCustomShellFolder.GetIDList(var pidl: PItemIDList): HRESULT;
-//begin
-//  OutputDebugString2('TCustomShellFolder.GetIDList');
-//  pidl := CopyPIDL(SeInitPIDL);
-//  if Assigned(pidl) then
-//    Result := S_OK
-//  else
-//    Result := E_FAIL
-//end;
-//
-//function TCustomShellFolder.SetIDList(pidl: PItemIDList): HRESULT;
-//begin
-////  ShowMessage('TCustomShellFolder.SetIDList');
-//  Result := E_NOTIMPL;
-//end;
+function TCustomShellFolder.GetIDList(var pidl: PItemIDList): HRESULT;
+begin
+  OutputDebugString2('TCustomShellFolder.GetIDList');
+  pidl := CopyPIDL(SeInitPIDL);
+  if Assigned(pidl) then
+    Result := S_OK
+  else
+    Result := E_FAIL
+end;
+
+function TCustomShellFolder.SetIDList(pidl: PItemIDList): HRESULT;
+begin
+//  ShowMessage('TCustomShellFolder.SetIDList');
+  Result := E_NOTIMPL;
+end;
 
 function TCustomShellFolder.SetNameOf(hwndOwner:HWND;pidl:PItemIDList;
    lpszName:POLEStr;uFlags:DWORD;var ppidlOut:PItemIDList):HResult;
@@ -416,7 +415,7 @@ begin
   if not Assigned(FShellFolderD) then
     begin
       OutputDebugString2('    Assigning Main Menu');
-      FShellFolderD := TShellFolderMainMenu.Create(PIDL_To_TPIDLStructure(pidl));
+      FShellFolderD := GetRootShellFolderD(pidl);
     end;
   SeInitPIDL := CopyPIDL(pidl);
   Result:=S_OK;

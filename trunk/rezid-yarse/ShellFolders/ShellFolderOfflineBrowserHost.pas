@@ -1,13 +1,12 @@
-unit ShellFolderOfflineBrowserRoot;
+unit ShellFolderOfflineBrowserHost;
 
 interface
 
 uses Classes, ShellFolderD, PIDLs, ShlObj, Windows, Graphics, Menus, OfflineBrowsing;
 
 type
-  TIExtractIconImplWOfflineBrowserRoot = class(TIExtractIconImplW)
+  TIExtractIconImplWOfflineBrowserHost = class(TIExtractIconImplW)
     protected
-      CorrespondingHost : TOfflineBrowserHost;
     public
       constructor Create(pidl : PItemIDList); override;
       function Extract(pszFile: PWideChar; nIconIndex: Cardinal;
@@ -16,11 +15,11 @@ type
       function GetFromRessource(RessourceName : string) : TIcon;
   end;
 
-  TShellFolderOfflineBrowserRoot = class(TShellFolderD)
+  TShellFolderOfflineBrowserHost = class(TShellFolderD)
     private
+      FHost : TOfflineBrowserHost;
       FPIDLList : TList;
-      FPIDLListFoldersOnly : TList;
-      ExtractIcon : TIExtractIconImplWOfflineBrowserRoot;
+      ExtractIcon : TIExtractIconImplWOfflineBrowserHost;
       procedure RebuildPIDLList;
     public
       {TShellFolderD}
@@ -38,7 +37,7 @@ type
       constructor Create(PIDL: TPIDLStructure); override;
   end;
 
-  TEnumIDListOfflineBrowserRoot = class(TEnumIDListD)
+  TEnumIDListOfflineBrowserHost = class(TEnumIDListD)
     private
       FIndex: integer;
     protected
@@ -48,7 +47,7 @@ type
       function Clone(out ppenum: IEnumIDList): HResult; override; stdcall;
   end;
 
-  TIContextMenuImplOfflineBrowserRoot = class(TIContextMenuImpl)
+  TIContextMenuImplOfflineBrowserHost = class(TIContextMenuImpl)
   private
     FPopupMenu : TPopupMenuIdentified;
   public
@@ -63,17 +62,16 @@ type
 
 implementation
 
-uses ConstsAndVars, Dialogs, Sysutils, CommCtrl, ShellFolderOfflineBrowserHost, ShellFolderMainMenu;
+uses ConstsAndVars, Dialogs, Sysutils, CommCtrl, ShellFolder;
 
-{ TShellFolderOfflineBrowserRoot }
+{ TShellFolderOfflineBrowserHost }
 
-function TShellFolderOfflineBrowserRoot.CompareIDs(pidl1,
+function TShellFolderOfflineBrowserHost.CompareIDs(pidl1,
   pidl2: PItemIDList): Integer;
 var
   pidl_struct1, pidl_struct2 : TPIDLStructure;
   temp_result : Integer;
 begin
-  OutputDebugStringFoldersD('TShellFolderOfflineBrowserRoot.CompareIDs');
   pidl_struct1 := PIDL_To_TPIDLStructure(GetPointerToLastID(pidl1));
   pidl_struct2 := PIDL_To_TPIDLStructure(GetPointerToLastID(pidl2));
   temp_result := pidl_struct1.ItemInfo1 - pidl_struct2.ItemInfo1;
@@ -86,87 +84,73 @@ begin
     Result := 1;
 end;
 
-constructor TShellFolderOfflineBrowserRoot.Create(PIDL: TPIDLStructure);
+constructor TShellFolderOfflineBrowserHost.Create(PIDL: TPIDLStructure);
 begin
   inherited;
-  OutputDebugStringFoldersD('TShellFolderOfflineBrowserRoot.Create');
+  OutputDebugStringFoldersD('TShellFolderOfflineBrowserHost.Create');
   FPIDLList := TList.Create;
-  FPIDLListFoldersOnly := TList.Create;
+  FHost := GetHostByID(OfflineBrowserHostList, PIDL.ItemInfo1);
+  if not Assigned(FHost) then
+    begin
+      FHost := TOfflineBrowserHost.CreateEmpty;
+    end;
   ExtractIcon := nil;
 end;
 
-destructor TShellFolderOfflineBrowserRoot.Destroy;
+destructor TShellFolderOfflineBrowserHost.Destroy;
 begin
-  OutputDebugStringFoldersD('TShellFolderOfflineBrowserRoot.Destroy');
-  FPIDLListFoldersOnly.Free;
+  OutputDebugStringFoldersD('TShellFolderOfflineBrowserHost.Destroy');
   FPIDLList.Free;
   inherited;
 end;
 
-function TShellFolderOfflineBrowserRoot.EnumObjects(grfFlags: DWORD): IEnumIDList;
+function TShellFolderOfflineBrowserHost.EnumObjects(grfFlags: DWORD): IEnumIDList;
 begin
-  OutputDebugStringFoldersD('TShellFolderOfflineBrowserRoot.EnumObjects');
+  OutputDebugStringFoldersD('TShellFolderOfflineBrowserHost.EnumObjects');
   RebuildPIDLList;
-  if grfFlags and SHCONTF_NONFOLDERS = SHCONTF_NONFOLDERS then
-    begin
-      Result := TEnumIDListOfflineBrowserRoot.Create(FPIDLList, grfFlags);
-    end
-  else
-      Result := TEnumIDListOfflineBrowserRoot.Create(FPIDLListFoldersOnly, grfFlags);
+  Result := TEnumIDListOfflineBrowserHost.Create(FPIDLList, grfFlags);
   Result.Reset;
 end;
 
-function TShellFolderOfflineBrowserRoot.GetAttributesOf(apidl: PItemIDList): UINT;
+function TShellFolderOfflineBrowserHost.GetAttributesOf(apidl: PItemIDList): UINT;
 var
   aPIDLStructure : TPIDLStructure;
-  aHost : TOfflineBrowserHost;
 begin
-  OutputDebugStringFoldersD('TShellFolderOfflineBrowserRoot.GetAttributesOf');
+  OutputDebugStringFoldersD('TShellFolderOfflineBrowserHost.GetAttributesOf');
   Result := SFGAO_READONLY;
   aPIDLStructure := PIDL_To_TPIDLStructure(apidl);
-  if aPIDLStructure.ItemType <> ITEM_OFFLINE_BROWSER_HOST then
+  if aPIDLStructure.ItemType <> ITEM_OFFLINE_BROWSER_SHARE then
     begin
       Exit;
     end;
-
-  aHost := GetHostByID(OfflineBrowserHostList, aPIDLStructure.ItemInfo1);
-  if not Assigned(aHost) then
-    begin
-      Exit;
-    end;
-
-  if aHost.ShareCount > 0 then
-    begin
-      Result := Result or SFGAO_FOLDER or SFGAO_HASSUBFOLDER;
-    end
 end;
 
-function TShellFolderOfflineBrowserRoot.GetDefaultColumn(var pSort,
+function TShellFolderOfflineBrowserHost.GetDefaultColumn(var pSort,
   pDisplay: Cardinal): HRESULT;
 begin
-  OutputDebugStringFoldersD('TShellFolderOfflineBrowserRoot.GetDefaultColumn');
+  OutputDebugStringFoldersD('TShellFolderOfflineBrowserHost.GetDefaultColumn');
   pSort := 0;
   pDisplay := 0;
   Result := S_OK;
 end;
 
-function TShellFolderOfflineBrowserRoot.GetDefaultColumnState(iColumn: Cardinal;
+function TShellFolderOfflineBrowserHost.GetDefaultColumnState(iColumn: Cardinal;
   var pcsFlags: Cardinal): HRESULT;
 begin
-  OutputDebugStringFoldersD('TShellFolderOfflineBrowserRoot.GetDefaultColumnState');
+  OutputDebugStringFoldersD('TShellFolderOfflineBrowserHost.GetDefaultColumnState');
   pcsFlags := SHCOLSTATE_TYPE_STR or SHCOLSTATE_ONBYDEFAULT;
   Result := S_OK;
 end;
 
-function TShellFolderOfflineBrowserRoot.GetDetailsOf(pidl: PItemIDList; iColumn: Cardinal;
+function TShellFolderOfflineBrowserHost.GetDetailsOf(pidl: PItemIDList; iColumn: Cardinal;
   var psd: _SHELLDETAILS): HRESULT;
 var
   sString : string;
   aPIDLStructure : TPIDLStructure;
-  aHost : TOfflineBrowserHost;
+  aShare : TOfflineBrowserShare;
 begin
-  OutputDebugStringFoldersD('TShellFolderOfflineBrowserRoot.GetDetailsOf');
-  if iColumn > 4 then
+  OutputDebugStringFoldersD('TShellFolderOfflineBrowserHost.GetDetailsOf');
+  if iColumn > 1 then
     begin
       Result := E_INVALIDARG;
       Exit;
@@ -175,19 +159,15 @@ begin
   sString := 'Saucisse';
   if Assigned(pidl)then
     begin
-      sString := 'SaucisseP';
       aPIDLStructure := PIDL_To_TPIDLStructure(pidl);
-      if aPIDLStructure.ItemType = ITEM_OFFLINE_BROWSER_HOST then
+      if aPIDLStructure.ItemType = ITEM_OFFLINE_BROWSER_SHARE then
         begin
-          aHost := GetHostByID(OfflineBrowserHostList, aPIDLStructure.ItemInfo1);
-          if Assigned(aHost) then
+          aShare := Self.FHost.Shares.GetByID(aPIDLStructure.ItemInfo1);
+          if Assigned(aShare) then
             begin
               case iColumn of
-                0: sString := aHost.Name;
-                1: sString := aHost.Comment;
-                2: sString := aHost.IP;
-                3: sString := inttostr(aHost.ShareCount);
-                4: sString := 'Status';
+                0: sString := aShare.Name;
+                1: sString := aShare.Comment;
               end;
             end;
         end;
@@ -196,10 +176,7 @@ begin
     begin
       case iColumn of
         0: sString := 'Nom';
-        1: sString := 'Description';
-        2: sString := 'IP';
-        3: sString := 'Nombre de partages';
-        4: sString := 'Status';
+        1: sString := 'Commentaire';
       end;
     end;
 
@@ -209,44 +186,45 @@ begin
   Result := S_OK;
 end;
 
-function TShellFolderOfflineBrowserRoot.GetDisplayNameOf(pidl: PItemIDList;
+function TShellFolderOfflineBrowserHost.GetDisplayNameOf(pidl: PItemIDList;
   uFlags: DWORD): string;
 var
   aPIDLStructure : TPIDLStructure;
-  aHost : TOfflineBrowserHost;
+  aShare : TOfflineBrowserShare;
 begin
-  OutputDebugStringFoldersD('TShellFolderOfflineBrowserRoot.GetDisplayNameOf');
-  Result := 'Ordinateur Inconnu';
+  OutputDebugStringFoldersD('TShellFolderOfflineBrowserHost.GetDisplayNameOf');
+  Result := 'Partage inconnu';
   aPIDLStructure := PIDL_To_TPIDLStructure(pidl);
-  if aPIDLStructure.ItemType <> ITEM_OFFLINE_BROWSER_HOST then
+  if aPIDLStructure.ItemType <> ITEM_OFFLINE_BROWSER_SHARE then
     begin
       Exit;
     end;
 
-  aHost := GetHostByID(OfflineBrowserHostList, aPIDLStructure.ItemInfo1);
-  if Assigned(aHost) then
-    Result := aHost.Name;
+  OutputDebugStringFoldersD('TShellFolderOfflineBrowserHost.GetDisplayNameOf Share: '+inttostr(aPIDLStructure.ItemInfo1));
+  aShare := Self.FHost.Shares.GetByID(aPIDLStructure.ItemInfo1);
+  if Assigned(aShare) then
+    Result := aShare.Name;
 end;
 
-function TShellFolderOfflineBrowserRoot.GetExtractIconImplW(pidl:PItemIDList): IExtractIconW;
+function TShellFolderOfflineBrowserHost.GetExtractIconImplW(pidl:PItemIDList): IExtractIconW;
 begin
-  Result := TIExtractIconImplWOfflineBrowserRoot.Create(pidl);
-  ExtractIcon := TIExtractIconImplWOfflineBrowserRoot(Result);
+  Result := TIExtractIconImplWOfflineBrowserHost.Create(pidl);
+  ExtractIcon := TIExtractIconImplWOfflineBrowserHost(Result);
 end;
 
-function TShellFolderOfflineBrowserRoot.GetIContextMenuImpl(
+function TShellFolderOfflineBrowserHost.GetIContextMenuImpl(
   pidl: PItemIDList): IContextMenu;
 begin
   Result := nil;
-//  Result := TIContextMenuImplOfflineBrowserRoot.Create(pidl);
+//  Result := TIContextMenuImplOfflineBrowserHost.Create(pidl);
 end;
 
-function TEnumIDListOfflineBrowserRoot.Clone(out ppenum: IEnumIDList): HResult;
+function TEnumIDListOfflineBrowserHost.Clone(out ppenum: IEnumIDList): HResult;
 begin
   Result := E_NOTIMPL;
 end;
 
-function TEnumIDListOfflineBrowserRoot.Next(celt: ULONG; out rgelt: PItemIDList;
+function TEnumIDListOfflineBrowserHost.Next(celt: ULONG; out rgelt: PItemIDList;
   var pceltFetched: ULONG): HResult;
 begin
   rgelt := nil;
@@ -272,61 +250,59 @@ begin
     end;
 end;
 
-function TEnumIDListOfflineBrowserRoot.Reset: HResult;
+function TEnumIDListOfflineBrowserHost.Reset: HResult;
 begin
   FIndex := 0;
   Result := S_OK;
 end;
 
-function TEnumIDListOfflineBrowserRoot.Skip(celt: ULONG): HResult;
+function TEnumIDListOfflineBrowserHost.Skip(celt: ULONG): HResult;
 begin
   Inc(FIndex, celt);
   Result := S_OK
 end;
 
-procedure TShellFolderOfflineBrowserRoot.RebuildPIDLList;
+procedure TShellFolderOfflineBrowserHost.RebuildPIDLList;
 var
   aPidlStructure : TPIDLStructure;
-  aHost : TOfflineBrowserHost;
+  aShare : TOfflineBrowserShare;
+  i : word;
 begin
+  OutputDebugStringFoldersD('TShellFolderOfflineBrowserHost.RebuildPIDLList');
   FPIDLList.Clear;
-  FPIDLListFoldersOnly.Clear;
-  UpdateOfflineBrowsingHostList;
-  for aHost in OfflineBrowserHostList do
+  GetHostShares(FHost);
+  OutputDebugStringFoldersD('   Got '+inttostr(Self.FHost.Shares.Count)+' shares');
+  if Self.FHost.Shares.Count > 0 then
     begin
-      aPidlStructure.ItemType := ITEM_OFFLINE_BROWSER_HOST;
-      aPidlStructure.ItemInfo1 := aHost.ID;
-      aPidlStructure.ItemInfo2 := 12; //Cette valeur ne sert à rien
-      FPIDLList.Add(TPIDLStructure_To_PIDl(aPidlStructure));
-      if aHost.ShareCount > 0 then
-        FPIDLListFoldersOnly.Add(TPIDLStructure_To_PIDl(aPidlStructure));
+      for i := 0 to Self.FHost.Shares.Count - 1 do
+        begin
+          aShare := Self.FHost.Shares.Item(i);
+          OutputDebugStringFoldersD('   Share '+inttostr(aShare.ID)+': '+aShare.Name);
+          aPidlStructure.ItemType := ITEM_OFFLINE_BROWSER_SHARE;
+          aPidlStructure.ItemInfo1 := aShare.ID;
+          aPidlStructure.ItemInfo2 := 12; //Cette valeur ne sert à rien
+
+          FPIDLList.Add(TPIDLStructure_To_PIDl(aPidlStructure));
+        end;
     end;
-
-
-//
-//  aPidlStructure.ItemType := ITEM_MAIN_MENU;
-//  aPidlStructure.ItemInfo1 := ITEM_MAIN_MENU_OFFLINE_BROWSER;
-//  aPidlStructure.ItemInfo2 := 1;
-//  FPIDLList.Add(TPIDLStructure_To_PIDl(aPidlStructure));
 
 end;
 
-{ TIExtractIconImplWOfflineBrowserRoot }
+{ TIExtractIconImplWOfflineBrowserHost }
 
-constructor TIExtractIconImplWOfflineBrowserRoot.Create(pidl: PItemIDList);
+constructor TIExtractIconImplWOfflineBrowserHost.Create(pidl: PItemIDList);
 var
   aPIDLStructure : TPIDLStructure;
 begin
   inherited;
   aPIDLStructure := PIDL_To_TPIDLStructure(pidl);
-  CorrespondingHost := nil;
-  if aPIDLStructure.ItemType = ITEM_OFFLINE_BROWSER_HOST then
+  if aPIDLStructure.ItemType = ITEM_OFFLINE_BROWSER_SHARE then
     begin
-      CorrespondingHost := GetHostByID(OfflineBrowserHostList, aPIDLStructure.ItemInfo1);
+
     end;
 end;
 
-function TIExtractIconImplWOfflineBrowserRoot.Extract(pszFile: PWideChar;
+function TIExtractIconImplWOfflineBrowserHost.Extract(pszFile: PWideChar;
   nIconIndex: Cardinal; out phiconLarge, phiconSmall: HICON;
   nIconSize: Cardinal): HRESULT;
 var
@@ -335,26 +311,7 @@ begin
   Result := S_FALSE;
   IconObject := nil;
 
-  if not Assigned(CorrespondingHost) then
-    begin
-      Exit;
-    end;
-
-  if CorrespondingHost.Online then
-    begin
-      if CorrespondingHost.ShareCount > 0 then
-        begin
-          IconObject := Self.GetFromRessource('OB_ONLINE_COMPUTER');
-        end
-      else
-        begin
-          IconObject := Self.GetFromRessource('OB_ONLINE_SUCKER');
-        end;
-    end
-  else
-    begin
-      IconObject := Self.GetFromRessource('OB_OFFLINE_COMPUTER');
-    end;
+  IconObject := Self.GetFromRessource('OB_SHARE');
 
   if Assigned(IconObject) then
     begin
@@ -364,7 +321,7 @@ begin
     end;
 end;
 
-function TIExtractIconImplWOfflineBrowserRoot.GetFromRessource(
+function TIExtractIconImplWOfflineBrowserHost.GetFromRessource(
   RessourceName: string): TIcon;
 var
   LibHandle : THandle;
@@ -381,9 +338,9 @@ begin
   end;
 end;
 
-{ TIContextMenuImplOfflineBrowserRoot }
+{ TIContextMenuImplOfflineBrowserHost }
 
-constructor TIContextMenuImplOfflineBrowserRoot.Create(pidl : PItemIDList);
+constructor TIContextMenuImplOfflineBrowserHost.Create(pidl : PItemIDList);
 var
   pmi : TMenuItemIdentified;
 begin
@@ -402,19 +359,19 @@ begin
   FPopupMenu.Items.Add(pmi);
 end;
 
-destructor TIContextMenuImplOfflineBrowserRoot.Destroy;
+destructor TIContextMenuImplOfflineBrowserHost.Destroy;
 begin
   FPopupMenu.Free;
   inherited;
 end;
 
-function TIContextMenuImplOfflineBrowserRoot.GetCommandString(idCmd, uType: Cardinal;
+function TIContextMenuImplOfflineBrowserHost.GetCommandString(idCmd, uType: Cardinal;
   pwReserved: PUINT; pszName: PAnsiChar; cchMax: Cardinal): HRESULT;
 begin
   Result := E_NOTIMPL;
 end;
 
-function TIContextMenuImplOfflineBrowserRoot.InvokeCommand(
+function TIContextMenuImplOfflineBrowserHost.InvokeCommand(
   var lpici: _CMINVOKECOMMANDINFO): HRESULT;
 var
   amii : TMenuItemIdentified;
@@ -434,7 +391,7 @@ begin
   Result := S_OK;
 end;
 
-function TIContextMenuImplOfflineBrowserRoot.QueryContextMenu(Menu: HMENU; indexMenu,
+function TIContextMenuImplOfflineBrowserHost.QueryContextMenu(Menu: HMENU; indexMenu,
   idCmdFirst, idCmdLast, uFlags: Cardinal): HRESULT;
 var
   aMenuItem : TMenuItem;

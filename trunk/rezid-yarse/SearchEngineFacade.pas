@@ -89,6 +89,7 @@ type
     function GetCurrentComputerList() : TOnlineHostList;
     function MakeSearch(search_string : string; search_in : TSearchInEnum) : TSearch;
     function GetOfflineBrowserComputerList : TOfflineBrowserHostArray;
+    function GetOfflineBrowserShareList(HostId : Integer) : TOfflineBrowserShareList;
   end;
 
 function GetFileTypeString(Extension : string) : string;

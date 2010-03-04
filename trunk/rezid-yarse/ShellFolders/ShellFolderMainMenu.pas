@@ -32,7 +32,7 @@ type
       function GetDefaultColumn(var pSort: Cardinal; var pDisplay: Cardinal): HRESULT; override;
       function GetDefaultColumnState(iColumn: Cardinal; var pcsFlags: Cardinal): HRESULT; override;
       function GetDetailsOf(pidl: PItemIDList; iColumn: Cardinal; var psd: _SHELLDETAILS): HRESULT; override;
-      function GetPIDLShellFolderD(pidl: PItemIDList): TShellFolderD; override;
+      function CompareIDs(pidl1, pidl2:PItemIDList) : integer; override;
       {Bonus}
       destructor Destroy; override;
       constructor Create(PIDL: TPIDLStructure); override;
@@ -69,6 +69,23 @@ uses ConstsAndVars, Dialogs, Sysutils, CommCtrl, NewSearch,
      ShellFolderOfflineBrowserRoot;
 
 { TShellFolderMainMenu }
+
+function TShellFolderMainMenu.CompareIDs(pidl1, pidl2: PItemIDList): integer;
+var
+  pidl_struct1, pidl_struct2 : TPIDLStructure;
+  temp_result : Integer;
+begin
+  pidl_struct1 := PIDL_To_TPIDLStructure(GetPointerToLastID(pidl1));
+  pidl_struct2 := PIDL_To_TPIDLStructure(GetPointerToLastID(pidl2));
+  temp_result := pidl_struct1.ItemInfo1 - pidl_struct2.ItemInfo1;
+
+  if temp_result = 0 then
+    Result := 0
+  else if temp_result < 0 then
+    Result := -1
+  else if temp_result > 0 then
+    Result := 1;
+end;
 
 constructor TShellFolderMainMenu.Create(PIDL: TPIDLStructure);
 begin
@@ -246,31 +263,6 @@ begin
   end;
 end;
 
-function TShellFolderMainMenu.GetPIDLShellFolderD(
-  pidl: PItemIDList): TShellFolderD;
-var
-  aPIDLStructure : TPIDLStructure;
-begin
-  OutputDebugStringFoldersD('TShellFolderMainMenu.GetPIDLShellFolderD');
-  Result := nil;
-  aPIDLStructure := PIDL_To_TPIDLStructure(pidl);
-  if aPIDLStructure.ItemType <> ITEM_MAIN_MENU then
-    begin
-      Exit;
-    end;
-
-  case aPIDLStructure.ItemInfo1 of
-    ITEM_MAIN_MENU_OFFLINE_BROWSER:
-      begin
-        OutputDebugString3('TShellFolderMainMenu.GetPIDLShellFolderD ITEM_MAIN_MENU_OFFLINE_BROWSER');
-        Result := TShellFolderOfflineBrowserRoot.Create(aPIDLStructure);
-      end;
-    ITEM_MAIN_MENU_NEW_SEARCH:
-      begin
-//        Result := 'Nouvelle recherche';
-      end;
-  end;
-end;
 
 function TEnumIDListMainMenu.Clone(out ppenum: IEnumIDList): HResult;
 begin

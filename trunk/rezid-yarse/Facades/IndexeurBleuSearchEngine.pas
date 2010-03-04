@@ -25,6 +25,7 @@ type
     function MakeSearch(search_string : string; search_in : TSearchInEnum) : TSearch;
     property CallbackTextInformation : TSearchEngineCallbackTextInformation read GetCallbackTextInformation write SetCallbackTextInformation;
     function GetOfflineBrowserComputerList : TOfflineBrowserHostArray;
+    function GetOfflineBrowserShareList(HostId : Integer) : TOfflineBrowserShareList;
 
     private function MakeSQLQuery(search_string : string; search_in : TSearchInEnum): string;
   end;
@@ -223,6 +224,66 @@ begin
                   end;
                 Online := current_computer_list.IsHostNameOnline(Name);
               end;
+          end;
+      end;
+  finally
+
+  end;
+  mysql_free_result(mysql_res);
+end;
+
+function TIndexeurBleuSearchEngineFacade.GetOfflineBrowserShareList(
+  HostId: Integer): TOfflineBrowserShareList;
+var
+  mysql_connection : PMYSQL;
+  mysql_res : PMYSQL_RES;
+  mysql_row : PMYSQL_ROW;
+  sql : string;
+  sql_ansi : AnsiString;
+  i : cardinal;
+  bs : string;
+  current_computer_list : TOnlineHostList;
+  a_share : TOfflineBrowserShare;
+begin
+  Result := TOfflineBrowserShareList.Create;
+  try
+    if libmysql_load(nil) = LIBMYSQL_MISSING then
+      begin
+        MessageDlg('LIBMYSQL_MISSING', mtError, [mbOK], 0);
+        Exit;
+      end;
+    mysql_connection := mysql_init(nil);
+      if not (mysql_real_connect(mysql_connection, PAnsiChar(config_mysql_server), PAnsiChar(config_mysql_user), PAnsiChar(config_mysql_password), PAnsiChar(config_mysql_db), 0, nil, 0) <> nil) then
+        begin
+          MessageDlg('Impossible de se connecter au serveur!', mtError, [mbOK], 0);
+          Exit;
+        end;
+    sql := 'SELECT id, name FROM folders WHERE computerId = '''+DoubleAsteriks(inttostr(HostId))+''' AND parentFolderId IS NULL';
+    OutputDebugStringFacade(sql);
+    sql_ansi := AnsiString(sql);
+      if mysql_real_query(mysql_connection, PAnsiChar(sql_ansi), length(sql_ansi)) = 0 then
+        begin
+          mysql_res := mysql_store_result(mysql_connection);
+        end
+      else
+        begin
+          MessageDlg('Ca chie!!', mtError, [mbOK], 0);
+          Exit;
+        end;
+
+    OutputDebugStringFacade('Num rows: '+inttostr(mysql_num_rows(mysql_res)));
+    if mysql_num_rows(mysql_res) > 0 then
+      begin
+        current_computer_list := Self.GetCurrentComputerList;
+        for i := 0 to mysql_num_rows(mysql_res) - 1 do
+          begin
+            mysql_row := mysql_fetch_row(mysql_res);
+            a_share := TOfflineBrowserShare.Create;
+            a_share.ID := strtointdef(mysql_row^[0], 0);
+            a_share.Name := mysql_row^[1];
+            a_share.HostID := HostId;
+            OutputDebugStringFacade('Share: '+a_share.Name+' ('+inttostr(a_share.ID)+')');
+            Result.Add(a_share);
           end;
       end;
   finally

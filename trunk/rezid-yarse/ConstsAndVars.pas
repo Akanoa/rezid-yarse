@@ -46,6 +46,7 @@ procedure FreeImageLists;
 procedure OutputDebugString2(m : string);
 procedure OutputDebugString3(m : string);
 procedure OutputDebugStringFoldersD(m : string);
+procedure OutputDebugStringFacade(m : string);
 
 implementation
 
@@ -63,7 +64,12 @@ end;
 
 procedure OutputDebugStringFoldersD(m : string);
 begin
-//  OutputDebugString(PWideChar(m));
+  OutputDebugString(PWideChar(m));
+end;
+
+procedure OutputDebugStringFacade(m : string);
+begin
+  OutputDebugString(PWideChar(m));
 end;
 
 function Sto_GetModuleName: String;
