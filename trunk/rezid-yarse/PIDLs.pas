@@ -240,7 +240,7 @@ begin
       begin
         AStrRet.uType := STRRET_CSTR;
         Str := AString;
-        StrLCopy(AStrRet.cStr, PAnsiChar( Str), MAX_PATH - 1);
+        StrLCopy(AStrRet.cStr, PAnsiChar(AnsiString(Str)), MAX_PATH - 1);
       end;
   end;
   Result := S_OK

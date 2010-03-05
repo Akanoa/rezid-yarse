@@ -12,7 +12,6 @@ type
       function Extract(pszFile: PWideChar; nIconIndex: Cardinal;
         out phiconLarge: HICON; out phiconSmall: HICON;
         nIconSize: Cardinal): HRESULT; override; stdcall;
-      function GetFromRessource(RessourceName : string) : TIcon;
   end;
 
   TShellFolderOfflineBrowserHost = class(TShellFolderD)
@@ -62,7 +61,7 @@ type
 
 implementation
 
-uses ConstsAndVars, Dialogs, Sysutils, CommCtrl, ShellFolder;
+uses ConstsAndVars, Dialogs, Sysutils, CommCtrl, ShellFolder, ShellIcons;
 
 { TShellFolderOfflineBrowserHost }
 
@@ -123,6 +122,7 @@ begin
     begin
       Exit;
     end;
+  Result := Result or SFGAO_FOLDER or SFGAO_HASSUBFOLDER;
 end;
 
 function TShellFolderOfflineBrowserHost.GetDefaultColumn(var pSort,
@@ -311,31 +311,9 @@ begin
   Result := S_FALSE;
   IconObject := nil;
 
-  IconObject := Self.GetFromRessource('OB_SHARE');
-
-  if Assigned(IconObject) then
-    begin
-      phiconLarge := IconObject.Handle;
-      phiconSmall := IconObject.Handle;
-      Result := S_OK;
-    end;
-end;
-
-function TIExtractIconImplWOfflineBrowserHost.GetFromRessource(
-  RessourceName: string): TIcon;
-var
-  LibHandle : THandle;
-begin
-  Result := TIcon.Create;
-  LibHandle:=Loadlibrary(PWideChar(Sto_GetModuleName()));
-  try
-    if LibHandle > 0 then
-    begin
-      Result.LoadFromResourceName(LibHandle, RessourceName);
-    end;
-  finally
-    FreeLibrary(LibHandle);
-  end;
+  phiconLarge := GetRessourceIconHandle('OB_SHARE');
+  phiconSmall := GetRessourceIconHandle('OB_SHARE');
+  Result := S_OK;
 end;
 
 { TIContextMenuImplOfflineBrowserHost }

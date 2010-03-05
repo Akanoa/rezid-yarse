@@ -102,7 +102,8 @@ function GetRootShellFolderD(pidl : PITEMIDLIST) : TShellFolderD;
 
 implementation
 
-uses ConstsAndVars, SysUtils, ShellFolderMainMenu, ShellFolderOfflineBrowserRoot, ShellFolderOfflineBrowserHost;
+uses ConstsAndVars, SysUtils,
+     ShellFolderMainMenu, ShellFolderOfflineBrowserRoot, ShellFolderOfflineBrowserHost, ShellFolderOfflineBrowserFolder;
 
 function GetPIDLShellFolderD(pidl : PITEMIDLIST) : TShellFolderD;
 var
@@ -120,6 +121,9 @@ begin
       end;
     ITEM_OFFLINE_BROWSER_HOST :
       Result := TShellFolderOfflineBrowserHost.Create(pidl_structure);
+    ITEM_OFFLINE_BROWSER_SHARE,
+    ITEM_OFFLINE_BROWSER_FOLDER :
+      Result := TShellFolderOfflineBrowserFolder.Create(pidl_structure);
   end;
 end;
 

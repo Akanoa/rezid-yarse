@@ -62,6 +62,8 @@
 			</DCCReference>
 			<DCCReference Include="ShellFolders\ShellFolderOfflineBrowserRoot.pas"/>
 			<DCCReference Include="ShellFolders\ShellFolderOfflineBrowserHost.pas"/>
+			<DCCReference Include="ShellFolders\ShellFolderOfflineBrowserFolder.pas"/>
+			<DCCReference Include="ShellIcons.pas"/>
 			<BuildConfiguration Include="Base">
 				<Key>Base</Key>
 			</BuildConfiguration>
@@ -94,7 +96,7 @@
 						<VersionInfo Name="MajorVer">3</VersionInfo>
 						<VersionInfo Name="MinorVer">1</VersionInfo>
 						<VersionInfo Name="Release">0</VersionInfo>
-						<VersionInfo Name="Build">562</VersionInfo>
+						<VersionInfo Name="Build">563</VersionInfo>
 						<VersionInfo Name="Debug">False</VersionInfo>
 						<VersionInfo Name="PreRelease">False</VersionInfo>
 						<VersionInfo Name="Special">False</VersionInfo>
@@ -106,7 +108,7 @@
 					<VersionInfoKeys>
 						<VersionInfoKeys Name="CompanyName">REZID and FZWTE</VersionInfoKeys>
 						<VersionInfoKeys Name="FileDescription">YARSE (Yet Another REZID Search Engine)</VersionInfoKeys>
-						<VersionInfoKeys Name="FileVersion">3.1.0.562</VersionInfoKeys>
+						<VersionInfoKeys Name="FileVersion">3.1.0.563</VersionInfoKeys>
 						<VersionInfoKeys Name="InternalName">YARSE</VersionInfoKeys>
 						<VersionInfoKeys Name="LegalCopyright">FZWTE 2010</VersionInfoKeys>
 						<VersionInfoKeys Name="LegalTrademarks"/>
