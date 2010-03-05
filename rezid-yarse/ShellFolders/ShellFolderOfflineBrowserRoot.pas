@@ -13,7 +13,6 @@ type
       function Extract(pszFile: PWideChar; nIconIndex: Cardinal;
         out phiconLarge: HICON; out phiconSmall: HICON;
         nIconSize: Cardinal): HRESULT; override; stdcall;
-      function GetFromRessource(RessourceName : string) : TIcon;
   end;
 
   TShellFolderOfflineBrowserRoot = class(TShellFolderD)
@@ -63,7 +62,7 @@ type
 
 implementation
 
-uses ConstsAndVars, Dialogs, Sysutils, CommCtrl, ShellFolderOfflineBrowserHost, ShellFolderMainMenu;
+uses ConstsAndVars, Dialogs, Sysutils, CommCtrl, ShellFolderOfflineBrowserHost, ShellFolderMainMenu, ShellIcons;
 
 { TShellFolderOfflineBrowserRoot }
 
@@ -344,42 +343,26 @@ begin
     begin
       if CorrespondingHost.ShareCount > 0 then
         begin
-          IconObject := Self.GetFromRessource('OB_ONLINE_COMPUTER');
+          phiconLarge := GetRessourceIconHandle('OB_ONLINE_COMPUTER');
+          phiconSmall := GetRessourceIconHandle('OB_ONLINE_COMPUTER');
+          Result := S_OK;
         end
       else
         begin
-          IconObject := Self.GetFromRessource('OB_ONLINE_SUCKER');
+          phiconLarge := GetRessourceIconHandle('OB_ONLINE_SUCKER');
+          phiconSmall := GetRessourceIconHandle('OB_ONLINE_SUCKER');
+          Result := S_OK;
         end;
     end
   else
     begin
-      IconObject := Self.GetFromRessource('OB_OFFLINE_COMPUTER');
-    end;
-
-  if Assigned(IconObject) then
-    begin
-      phiconLarge := IconObject.Handle;
-      phiconSmall := IconObject.Handle;
+      phiconLarge := GetRessourceIconHandle('OB_OFFLINE_COMPUTER');
+      phiconSmall := GetRessourceIconHandle('OB_OFFLINE_COMPUTER');
       Result := S_OK;
     end;
+
 end;
 
-function TIExtractIconImplWOfflineBrowserRoot.GetFromRessource(
-  RessourceName: string): TIcon;
-var
-  LibHandle : THandle;
-begin
-  Result := TIcon.Create;
-  LibHandle:=Loadlibrary(PWideChar(Sto_GetModuleName()));
-  try
-    if LibHandle > 0 then
-    begin
-      Result.LoadFromResourceName(LibHandle, RessourceName);
-    end;
-  finally
-    FreeLibrary(LibHandle);
-  end;
-end;
 
 { TIContextMenuImplOfflineBrowserRoot }
 

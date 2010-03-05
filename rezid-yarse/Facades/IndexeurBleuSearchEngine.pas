@@ -26,6 +26,7 @@ type
     property CallbackTextInformation : TSearchEngineCallbackTextInformation read GetCallbackTextInformation write SetCallbackTextInformation;
     function GetOfflineBrowserComputerList : TOfflineBrowserHostArray;
     function GetOfflineBrowserShareList(HostId : Integer) : TOfflineBrowserShareList;
+    procedure FetchOfflineBrowserFolderContent(var Folder : TOfflineBrowserFolder);
 
     private function MakeSQLQuery(search_string : string; search_in : TSearchInEnum): string;
   end;
@@ -109,7 +110,6 @@ var
   bsl : TStrings;
   file_name : string;
   DResult : TOnlineHostList;
-  BS : string;
   i : word;
   a_host : TOnlineHost;
   BSL2 : TStrings;
@@ -119,6 +119,7 @@ begin
   if Assigned(FCurrentComputerList) then
     begin
       Result := FCurrentComputerList;
+      Exit;
     end;
   file_name := ExtractFilePath(Sto_GetModuleName())+'online_list.dat';
   FileAge(file_name, OnlineListDatAge);
@@ -173,7 +174,6 @@ var
   sql : string;
   sql_ansi : AnsiString;
   i : cardinal;
-  bs : string;
   current_computer_list : TOnlineHostList;
   a_online_host : TOnlineHost;
 begin
@@ -213,9 +213,9 @@ begin
 
             with Result[i] do
               begin
-                ID := strtointdef(mysql_row^[0], 0);
-                Name := mysql_row^[1];
-                ShareCount := strtointdef(mysql_row^[2], 0);
+                ID := strtointdef(string(mysql_row^[0]), 0);
+                Name := string(mysql_row^[1]);
+                ShareCount := strtointdef(string(mysql_row^[2]), 0);
                 a_online_host := current_computer_list.GetByHostName(Name);
                 if Assigned(a_online_host) then
                   begin
@@ -232,8 +232,7 @@ begin
   mysql_free_result(mysql_res);
 end;
 
-function TIndexeurBleuSearchEngineFacade.GetOfflineBrowserShareList(
-  HostId: Integer): TOfflineBrowserShareList;
+procedure TIndexeurBleuSearchEngineFacade.FetchOfflineBrowserFolderContent(var Folder : TOfflineBrowserFolder);
 var
   mysql_connection : PMYSQL;
   mysql_res : PMYSQL_RES;
@@ -242,10 +241,9 @@ var
   sql_ansi : AnsiString;
   i : cardinal;
   bs : string;
-  current_computer_list : TOnlineHostList;
-  a_share : TOfflineBrowserShare;
+  a_folder : TOfflineBrowserFolder;
+  a_file : TOfflineBrowserFile;
 begin
-  Result := TOfflineBrowserShareList.Create;
   try
     if libmysql_load(nil) = LIBMYSQL_MISSING then
       begin
@@ -258,7 +256,7 @@ begin
           MessageDlg('Impossible de se connecter au serveur!', mtError, [mbOK], 0);
           Exit;
         end;
-    sql := 'SELECT id, name FROM folders WHERE computerId = '''+DoubleAsteriks(inttostr(HostId))+''' AND parentFolderId IS NULL';
+    sql := 'SELECT id, name, path, size, ''file'' AS type FROM files WHERE parentFolderId = '+DoubleAsteriks(inttostr(Folder.Id))+' UNION SELECT id, name, path, size, ''folder'' AS type FROM folders WHERE parentFolderId = '+DoubleAsteriks(inttostr(Folder.Id))+'';
     OutputDebugStringFacade(sql);
     sql_ansi := AnsiString(sql);
       if mysql_real_query(mysql_connection, PAnsiChar(sql_ansi), length(sql_ansi)) = 0 then
@@ -274,13 +272,84 @@ begin
     OutputDebugStringFacade('Num rows: '+inttostr(mysql_num_rows(mysql_res)));
     if mysql_num_rows(mysql_res) > 0 then
       begin
-        current_computer_list := Self.GetCurrentComputerList;
+        for i := 0 to mysql_num_rows(mysql_res) - 1 do
+          begin
+            mysql_row := mysql_fetch_row(mysql_res);
+            bs := string(mysql_row^[4]);
+            if bs = 'folder' then
+              begin
+                a_folder := TOfflineBrowserFolder.Create;
+                a_folder.Id := strtointdef(string(mysql_row^[0]), 0);
+                a_folder.Name := string(mysql_row^[1]);
+                a_folder.Path := string(mysql_row^[2]);
+                a_folder.Size := strtointdef(string(mysql_row^[3]), 0);
+                Folder.AddFolder(a_folder);
+              end
+            else if bs = 'file' then
+              begin
+                a_file := TOfflineBrowserFile.Create;
+                a_file.Id := strtointdef(string(mysql_row^[0]), 0);
+                a_file.Name := string(mysql_row^[1]);
+                a_file.Path := string(mysql_row^[2]);
+                a_file.Size := strtointdef(string(mysql_row^[3]), 0);
+                Folder.AddFile(a_file);
+              end;
+          end;
+        Folder.ContentFetched := True;
+      end;
+  finally
+
+  end;
+  mysql_free_result(mysql_res);
+end;
+
+function TIndexeurBleuSearchEngineFacade.GetOfflineBrowserShareList(
+  HostId: Integer): TOfflineBrowserShareList;
+var
+  mysql_connection : PMYSQL;
+  mysql_res : PMYSQL_RES;
+  mysql_row : PMYSQL_ROW;
+  sql : string;
+  sql_ansi : AnsiString;
+  i : cardinal;
+  a_share : TOfflineBrowserShare;
+begin
+  OutputDebugStringFacade('TIndexeurBleuSearchEngineFacade.GetOfflineBrowserShareList starts');
+  Result := TOfflineBrowserShareList.Create;
+  try
+    if libmysql_load(nil) = LIBMYSQL_MISSING then
+      begin
+        MessageDlg('LIBMYSQL_MISSING', mtError, [mbOK], 0);
+        Exit;
+      end;
+    mysql_connection := mysql_init(nil);
+      if not (mysql_real_connect(mysql_connection, PAnsiChar(config_mysql_server), PAnsiChar(config_mysql_user), PAnsiChar(config_mysql_password), PAnsiChar(config_mysql_db), 0, nil, 0) <> nil) then
+        begin
+          MessageDlg('Impossible de se connecter au serveur!', mtError, [mbOK], 0);
+          Exit;
+        end;
+    sql := 'SELECT id, name FROM folders WHERE computerId = '''+DoubleAsteriks(inttostr(HostId))+''' AND parentFolderId IS NULL';
+    OutputDebugStringFacade('   '+sql);
+    sql_ansi := AnsiString(sql);
+      if mysql_real_query(mysql_connection, PAnsiChar(sql_ansi), length(sql_ansi)) = 0 then
+        begin
+          mysql_res := mysql_store_result(mysql_connection);
+        end
+      else
+        begin
+          MessageDlg('Ca chie!!', mtError, [mbOK], 0);
+          Exit;
+        end;
+
+    OutputDebugStringFacade('Num rows: '+inttostr(mysql_num_rows(mysql_res)));
+    if mysql_num_rows(mysql_res) > 0 then
+      begin
         for i := 0 to mysql_num_rows(mysql_res) - 1 do
           begin
             mysql_row := mysql_fetch_row(mysql_res);
             a_share := TOfflineBrowserShare.Create;
-            a_share.ID := strtointdef(mysql_row^[0], 0);
-            a_share.Name := mysql_row^[1];
+            a_share.ID := strtointdef(string(mysql_row^[0]), 0);
+            a_share.Name := string(mysql_row^[1]);
             a_share.HostID := HostId;
             OutputDebugStringFacade('Share: '+a_share.Name+' ('+inttostr(a_share.ID)+')');
             Result.Add(a_share);
@@ -325,10 +394,7 @@ const
 var
   s : string;
   bsl : TStringList;
-  i : word;
-  charfield : string;
   regexpstring : string;
-  bas : PAnsiString;
 begin
   //UPDATE files SET ext = SUBSTRING(name, CHAR_LENGTH(name) - LOCATE('.', REVERSE(name)) + 2);
 //  s := 'SELECT `nom`, `path`, `size`, `type`, `file_c_time`, `file_m_time` FROM `elements` WHERE `nom` REGEXP '''+DoubleAsteriks(searched_string)+''';';
@@ -393,7 +459,6 @@ var
   sql : string;
   sql_ansi : AnsiString;
   i : cardinal;
-  bs : string;
 begin
   CallbackTextInformation('Début de la recherche: "'+search_string+'"');
   CallbackTextInformation('Connexion au serveur: '+'127.0.0.1');
@@ -440,15 +505,15 @@ begin
 //              Result.Search_Results[i].ItemType := itFolder
 //            else
               Result.Search_Results[i].ItemType := itFile;
-          Result.Search_Results[i].Name := mysql_row^[1];
+          Result.Search_Results[i].Name := string(mysql_row^[1]);
 
           with Result.Search_Results[i] do
             begin
-              Host := mysql_row^[0];
-              Size := int64(StrToInt64Def(mysql_row^[2], 0));
-              Path := mysql_row^[3];
+              Host := string(mysql_row^[0]);
+              Size := int64(StrToInt64Def(string(mysql_row^[2]), 0));
+              Path := string(mysql_row^[3]);
 //              DateCreation := UnixToDateTime(strtointdef(mysql_row^[4], 0));
-              DateModification := UnixToDateTime(strtointdef(mysql_row^[4], 0));
+              DateModification := UnixToDateTime(strtointdef(string(mysql_row^[4]), 0));
             end;
         end;
     end;

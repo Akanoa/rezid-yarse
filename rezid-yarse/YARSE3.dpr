@@ -39,7 +39,9 @@ uses
   mysql in 'Includes\mysql.pas',
   NewSearch in 'Forms\NewSearch.pas' {FNewSearch},
   ShellFolderOfflineBrowserRoot in 'ShellFolders\ShellFolderOfflineBrowserRoot.pas',
-  ShellFolderOfflineBrowserHost in 'ShellFolders\ShellFolderOfflineBrowserHost.pas';
+  ShellFolderOfflineBrowserHost in 'ShellFolders\ShellFolderOfflineBrowserHost.pas',
+  ShellFolderOfflineBrowserFolder in 'ShellFolders\ShellFolderOfflineBrowserFolder.pas',
+  ShellIcons in 'ShellIcons.pas';
 
 {$R *.res}
 {$R AdditionalRessources.res}

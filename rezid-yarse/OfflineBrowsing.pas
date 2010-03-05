@@ -13,21 +13,75 @@ interface
 uses ShlObj, ConstsAndVars, Windows, Classes;
 
 type
+  TOfflineBrowserFolder = class;
+
+  TOfflineBrowserFile = class(TObject)
+    protected
+      FId : Integer;
+      FName : string;
+      FPath : string;
+      FSize : Integer;
+      FParentFolder : TOfflineBrowserFolder;
+      FHostId : Integer;
+    public
+      property Id : Integer read FId write FId;
+      property Name : string read FName write FName;
+      property Path : string read FPath write FPath;
+      property Size : Integer read FSize write FSize;
+      property ParentFolder : TOfflineBrowserFolder read FParentFolder write FParentFolder;
+      property HostId : Integer read FHostId write FHostId;
+  end;
+  TOfflineBrowserFileArray = array of TOfflineBrowserFile;
+
+  TOfflineBrowserFolderArray = array of TOfflineBrowserFolder;
+  TOfflineBrowserFolder = class(TObject)
+    protected
+      FId : Integer;
+      FName : string;
+      FPath : string;
+      FSize : Integer;
+      FParentFolder : TOfflineBrowserFolder;
+      FHostId : Integer;
+      FSubFolders : TOfflineBrowserFolderArray;
+      FFiles : TOfflineBrowserFileArray;
+      FContentFetched : boolean;
+    public
+      property Id : Integer read FId write FId;
+      property Name : string read FName write FName;
+      property Path : string read FPath write FPath;
+      property Size : Integer read FSize write FSize;
+      property ParentFolder : TOfflineBrowserFolder read FParentFolder write FParentFolder;
+      property HostId : Integer read FHostId write FHostId;
+      property SubFolders : TOfflineBrowserFolderArray read FSubFolders write FSubFolders;
+      property Files : TOfflineBrowserFileArray read FFiles write FFiles;
+      property ContentFetched : boolean read FContentFetched write FContentFetched;
+      constructor Create;
+      destructor Destroy; override;
+      function FindFileById(FileID : Integer) : TOfflineBrowserFile;
+      function FindSubFolderById(FolderID : Integer) : TOfflineBrowserFolder;
+      procedure AddFolder(Folder : TOfflineBrowserFolder);
+      procedure AddFile(aFile : TOfflineBrowserFile);
+  end;
+
   TOfflineBrowserShare = class(TObject)
-  private
+  protected
     FID : Integer;
     FHostId : Integer;
     FName : string;
     FComment : string;
+    FSelfAsFolder : TOfflineBrowserFolder;
   public
     property ID : Integer read FID write FID;
     property HostID : Integer read FHostId write FHostId;
     property Name : string read FName write FName;
     property Comment : string read FComment write FComment;
+    property SelfAsFolder : TOfflineBrowserFolder read FSelfAsFolder write FSelfAsFolder;
+    constructor Create;
+    destructor Destroy; override;
   end;
 
   TOfflineBrowserShareList = class
-    private
+    protected
       FList : TList;
     public
       procedure Add(aShare : TOfflineBrowserShare);
@@ -42,7 +96,7 @@ type
   end;
 
   TOfflineBrowserHost = class (TObject)
-  private
+  protected
     FID : Integer;
     FName: string;
     FIP : string;
@@ -67,15 +121,28 @@ type
 
   TOfflineBrowserHostArray = array of TOfflineBrowserHost;
 
+  TOfflineBrowserFolderIDIndexElement = class
+    protected
+      FFolderId : Integer;
+      FFolderRef : TOfflineBrowserFolder;
+    public
+      property FolderId : Integer read FFolderId write FFolderId;
+      property FolderRef : TOfflineBrowserFolder read FFolderRef write FFolderRef;
+  end;
+
 var
   OfflineBrowserHostList : TOfflineBrowserHostArray = nil;
   OfflineBrowserCritSect : TRTLCriticalSection;
-
   OfflineBrowserSharesCritSect : TRTLCriticalSection;
+  OfflineBrowserFolderCritSect : TRTLCriticalSection;
+  OfflineBrowserFolderIDIndex : TList;
 
 function GetHostByID(HostList : TOfflineBrowserHostArray; HostId : integer) : TOfflineBrowserHost;
 procedure UpdateOfflineBrowsingHostList;
 function GetHostShares(Host : TOfflineBrowserHost) : TOfflineBrowserShareList;
+procedure FetchOfflineBrowserFolderContent(var Folder : TOfflineBrowserFolder);
+procedure AddFolderToIndex(Folder : TOfflineBrowserFolder);
+function FindFolderInIndex(FolderID : Integer) : TOfflineBrowserFolder;
 
 implementation
 
@@ -119,6 +186,8 @@ end;
 function GetHostShares(Host : TOfflineBrowserHost) : TOfflineBrowserShareList;
 var
   YARSEFacade : IAbstractSearchEngineFacade;
+  i : word;
+  aFolder : TOfflineBrowserFolder;
 begin
   EnterCriticalSection(OfflineBrowserSharesCritSect);
   OutputDebugStringFacade('GetHostShares Starts');
@@ -135,11 +204,66 @@ begin
     Host.Shares := YARSEFacade.GetOfflineBrowserShareList(Host.ID);
     OutputDebugStringFacade('GetHostShares Fetched: '+inttostr(Host.Shares.Count));
     Result := Host.Shares;
+    if Host.Shares.Count > 0 then
+      for i := 0 to Host.Shares.Count - 1 do
+        begin
+          aFolder := TOfflineBrowserFolder.Create;
+          aFolder.Id := Host.Shares.Item(i).ID;
+          aFolder.Name := Host.Shares.Item(i).Name;
+          AddFolderToIndex(aFolder);
+        end;
     Host.SharesFetched := True;
   finally
     LeaveCriticalSection(OfflineBrowserSharesCritSect);
   OutputDebugStringFacade('GetHostShares Ends');
   end;
+end;
+
+procedure FetchOfflineBrowserFolderContent(var Folder : TOfflineBrowserFolder);
+var
+  YARSEFacade : IAbstractSearchEngineFacade;
+  i : word;
+begin
+  EnterCriticalSection(OfflineBrowserFolderCritSect);
+  try
+    if Folder.ContentFetched then
+      Exit;
+    YARSEFacade := GetConcreteSearchEngineFacade;
+    YARSEFacade.FetchOfflineBrowserFolderContent(Folder);
+    if Length(Folder.SubFolders) > 0 then
+      for i := 0 to Length(Folder.SubFolders) - 1 do
+        begin
+          AddFolderToIndex(Folder.SubFolders[i]);
+        end;
+  finally
+    LeaveCriticalSection(OfflineBrowserFolderCritSect);
+  end;
+end;
+
+procedure AddFolderToIndex(Folder : TOfflineBrowserFolder);
+var
+  aIndex : TOfflineBrowserFolderIDIndexElement;
+begin
+  aIndex := TOfflineBrowserFolderIDIndexElement.Create;
+  aIndex.FolderId := Folder.Id;
+  aIndex.FFolderRef := Folder;
+  OfflineBrowserFolderIDIndex.Add(aIndex);
+end;
+
+function FindFolderInIndex(FolderID : Integer) : TOfflineBrowserFolder;
+var
+  i : Cardinal;
+begin
+  Result := nil;
+  if OfflineBrowserFolderIDIndex.Count > 0 then
+    for i := 0 to OfflineBrowserFolderIDIndex.Count - 1 do
+      begin
+        if TOfflineBrowserFolderIDIndexElement(OfflineBrowserFolderIDIndex[i]).FFolderId = FolderID then
+          begin
+            Result := TOfflineBrowserFolderIDIndexElement(OfflineBrowserFolderIDIndex[i]).FFolderRef;
+            Break;
+          end;
+      end;
 end;
 
 { TOfflineBrowserShareList }
@@ -230,12 +354,91 @@ begin
   inherited;
 end;
 
+{ TOfflineBrowserShare }
+
+constructor TOfflineBrowserShare.Create;
+begin
+  inherited;
+  SelfAsFolder := TOfflineBrowserFolder.Create;
+end;
+
+destructor TOfflineBrowserShare.Destroy;
+begin
+  FSelfAsFolder.Free;
+  inherited;
+end;
+
+{ TOfflineBrowserFolder }
+
+procedure TOfflineBrowserFolder.AddFile(aFile: TOfflineBrowserFile);
+begin
+  SetLength(FFiles, length(FFiles)+1);
+  FFiles[Length(FFiles)-1] := aFile;
+end;
+
+procedure TOfflineBrowserFolder.AddFolder(Folder: TOfflineBrowserFolder);
+begin
+  SetLength(FSubFolders, length(FSubFolders)+1);
+  FSubFolders[Length(FSubFolders)-1] := Folder;
+end;
+
+constructor TOfflineBrowserFolder.Create;
+begin
+  FFiles := nil;
+  FSubFolders := nil;
+  FContentFetched := False;
+end;
+
+destructor TOfflineBrowserFolder.Destroy;
+begin
+
+  inherited;
+end;
+
+function TOfflineBrowserFolder.FindFileById(
+  FileID: Integer): TOfflineBrowserFile;
+var
+  i : Cardinal;
+begin
+  Result := nil;
+  if not Self.ContentFetched then
+    Exit;
+  if length(Self.FFiles) > 0 then
+    for i := 0 to length(self.Files) - 1 do
+      if TOfflineBrowserFile(Self.Files[i]).Id = FileID then
+        begin
+          Result := Self.FFiles[i];
+          Break;
+        end;
+end;
+
+function TOfflineBrowserFolder.FindSubFolderById(
+  FolderID: Integer): TOfflineBrowserFolder;
+var
+  i : Cardinal;
+begin
+  Result := nil;
+  if not Self.ContentFetched then
+    Exit;
+  if length(Self.FSubFolders) > 0 then
+    for i := 0 to length(self.Files) - 1 do
+      if TOfflineBrowserFolder(Self.FSubFolders[i]).Id = FolderID then
+        begin
+          Result := Self.FSubFolders[i];
+          Break;
+        end;
+end;
+
 initialization
   InitializeCriticalSection(OfflineBrowserCritSect);
   InitializeCriticalSection(OfflineBrowserSharesCritSect);
+  InitializeCriticalSection(OfflineBrowserFolderCritSect);
+  OfflineBrowserFolderIDIndex := TList.Create;
 
 finalization
-  DeleteCriticalSection(OfflineBrowserCritSect);
+  OfflineBrowserFolderIDIndex.Free;
+  DeleteCriticalSection(OfflineBrowserFolderCritSect);
   DeleteCriticalSection(OfflineBrowserSharesCritSect);
+  DeleteCriticalSection(OfflineBrowserCritSect);
 
 end.

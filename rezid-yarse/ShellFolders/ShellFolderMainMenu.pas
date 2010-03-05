@@ -14,7 +14,6 @@ type
       function Extract(pszFile: PWideChar; nIconIndex: Cardinal;
         out phiconLarge: HICON; out phiconSmall: HICON;
         nIconSize: Cardinal): HRESULT; override; stdcall;
-      function GetFromRessource(RessourceName : string) : TIcon;
   end;
 
   TShellFolderMainMenu = class(TShellFolderD)
@@ -66,7 +65,7 @@ type
 implementation
 
 uses ConstsAndVars, Dialogs, Sysutils, CommCtrl, NewSearch,
-     ShellFolderOfflineBrowserRoot;
+     ShellFolderOfflineBrowserRoot, ShellIcons;
 
 { TShellFolderMainMenu }
 
@@ -351,49 +350,18 @@ begin
   case Self.SelfPIDL.ItemInfo1 of
     ITEM_MAIN_MENU_OFFLINE_BROWSER:
       begin
-        if False and Assigned(IconOfflineBrowser) then
-          IconObject := IconOfflineBrowser
-        else
-          begin
-            IconObject := Self.GetFromRessource('OFFLINE_BROWSER');
-            IconOfflineBrowser := IconObject;
-          end;
+        phiconLarge := GetRessourceIconHandle('OFFLINE_BROWSER');
+        phiconSmall := GetRessourceIconHandle('OFFLINE_BROWSER');
+        Result := S_OK;
       end;
     ITEM_MAIN_MENU_NEW_SEARCH:
       begin
-        if False and Assigned(IconNewSearch) then
-          IconObject := IconNewSearch
-        else
-          begin
-            IconObject := Self.GetFromRessource('SEARCH');
-            IconNewSearch := IconObject;
-          end;
+        phiconLarge := GetRessourceIconHandle('SEARCH');
+        phiconSmall := GetRessourceIconHandle('SEARCH');
+        Result := S_OK;
       end;
   end;
 
-  if Assigned(IconObject) then
-    begin
-      phiconLarge := IconObject.Handle;
-      phiconSmall := IconObject.Handle;
-      Result := S_OK;
-    end;
-end;
-
-function TIExtractIconImplWMainMenu.GetFromRessource(
-  RessourceName: string): TIcon;
-var
-  LibHandle : THandle;
-begin
-  Result := TIcon.Create;
-  LibHandle:=Loadlibrary(PWideChar(Sto_GetModuleName()));
-  try
-    if LibHandle > 0 then
-    begin
-      Result.LoadFromResourceName(LibHandle, RessourceName);
-    end;
-  finally
-    FreeLibrary(LibHandle);
-  end;
 end;
 
 { TIContextMenuImplMainMenu }
