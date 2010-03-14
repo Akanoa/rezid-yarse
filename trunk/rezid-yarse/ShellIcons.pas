@@ -18,6 +18,7 @@ var
   IconOB_OnlineSucker : TIcon;
   IconOB_Share : TIcon;
   IconOfflineBrowser : TIcon;
+  Icon_SearchFolder : TIcon;
   IconYARSE : TIcon;
   IconSEARCH : TIcon;
 
@@ -77,6 +78,9 @@ begin
 
       IconOfflineBrowser := TIcon.Create;
       IconOfflineBrowser.LoadFromResourceName(LibHandle, 'OFFLINE_BROWSER');
+
+      Icon_SearchFolder := TIcon.Create;
+      Icon_SearchFolder.LoadFromResourceName(LibHandle, 'SEARCH_FOLDER');
     end;
   finally
     CloseHandle(LibHandle);
@@ -105,6 +109,7 @@ begin
   IconOfflineBrowser.Free;
   IconYARSE.Free;
   IconSEARCH.Free;
+  Icon_SearchFolder.Free;
   ilSmallIcons.Free;
   ilLargeIcons.Free;
   ilExtraLargeIcon.Free;
@@ -147,6 +152,8 @@ begin
     Result := IconOfflineBrowser.Handle
   else if RessourceName = 'SEARCH' then
     Result := IconSEARCH.Handle
+  else if RessourceName = 'SEARCH_FOLDER' then
+    Result := Icon_SearchFolder.Handle
   else if RessourceName = 'YARSE' then
     Result := IconYARSE.Handle;
 end;

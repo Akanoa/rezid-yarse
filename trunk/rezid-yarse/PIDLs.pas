@@ -33,6 +33,7 @@ function FillStrRet(var AStrRet: TStrRet; AType: TStrRetType;
 function AppendPIDL(DestPIDL, SrcPIDL: PItemIDList): PItemIDList;
 procedure FreeAndNilPIDL(var PIDL: PItemIDList);
 procedure FreePIDL(PIDL: PItemIDList);
+function StripLastID(IDList: PItemIDList): PItemIDList;
 
 var
   FMalloc : IMalloc;
@@ -294,6 +295,25 @@ procedure FreePIDL(PIDL: PItemIDList);
 begin
   if Assigned(PIDL) then
     FMalloc.Free(PIDL)
+end;
+
+function StripLastID(IDList: PItemIDList): PItemIDList;
+// Removes the last PID from the list. Returns the same, shortened, IDList passed
+// to the function
+var
+  MarkerID: PItemIDList;
+begin
+  Result := IDList;
+  MarkerID := IDList;
+  if Assigned(IDList) then
+  begin
+    while IDList.mkid.cb <> 0 do
+    begin
+      MarkerID := IDList;
+      IDList := NextID(IDList);
+    end;
+    MarkerID.mkid.cb := 0;
+  end;
 end;
 
 initialization

@@ -2,7 +2,7 @@ unit ShellFolderOfflineBrowserFolder;
 
 interface
 
-uses Classes, ShellFolderD, PIDLs, ShlObj, Windows, Graphics, Menus, OfflineBrowsing;
+uses Classes, ShellFolderD, PIDLs, ShlObj, Windows, Graphics, Menus, OfflineBrowsing, Forms, ShellFolderView;
 
 type
   TIExtractIconImplWOfflineBrowserFolder = class(TIExtractIconImplW)
@@ -25,12 +25,13 @@ type
       function EnumObjects(grfFlags:DWORD) : IEnumIDList; override; stdcall;
       function GetDisplayNameOf(pidl:PItemIDList;uFlags:DWORD) : string; override;
       function GetExtractIconImplW(pidl:PItemIDList) : IExtractIconW; override;
-      function GetIContextMenuImpl(pidl: PItemIDList): IContextMenu; override;
+      function GetIContextMenuImpl(pidl: PItemIDList): TIContextMenuImpl; override;
       function GetAttributesOf(apidl:PItemIDList) : UINT; override;
       function GetDefaultColumn(var pSort: Cardinal; var pDisplay: Cardinal): HRESULT; override;
       function GetDefaultColumnState(iColumn: Cardinal; var pcsFlags: Cardinal): HRESULT; override;
       function GetDetailsOf(pidl: PItemIDList; iColumn: Cardinal; var psd: _SHELLDETAILS): HRESULT; override;
       function CompareIDs(pidl1: PItemIDList; pidl2: PItemIDList): Integer; override;
+      function GetViewForm : TShellViewForm; override;
       {Bonus}
       destructor Destroy; override;
       constructor Create(PIDL: TPIDLStructure); override;
@@ -47,16 +48,8 @@ type
   end;
 
   TIContextMenuImplOfflineBrowserFolder = class(TIContextMenuImpl)
-  private
-    FPopupMenu : TPopupMenuIdentified;
   public
-    {Bonus}
-    constructor Create(pidl : PItemIDList); virtual;
-    destructor Destroy; override;
-    {IContextMenu}
-    function GetCommandString(idCmd: Cardinal; uType: Cardinal; pwReserved: PUINT; pszName: PAnsiChar; cchMax: Cardinal): HRESULT; override; stdcall;
-    function InvokeCommand(var lpici: _CMINVOKECOMMANDINFO): HRESULT; override; stdcall;
-    function QueryContextMenu(Menu: HMENU; indexMenu: Cardinal; idCmdFirst: Cardinal; idCmdLast: Cardinal; uFlags: Cardinal): HRESULT; override; stdcall;
+    procedure PopulateItems; override;
   end;
 
 implementation
@@ -74,6 +67,7 @@ begin
   pidl_struct1 := PIDL_To_TPIDLStructure(GetPointerToLastID(pidl1));
   pidl_struct2 := PIDL_To_TPIDLStructure(GetPointerToLastID(pidl2));
   temp_result := pidl_struct1.ItemInfo1 - pidl_struct2.ItemInfo1;
+  Result := 0;
 
   if temp_result = 0 then
     Result := 0
@@ -124,7 +118,7 @@ begin
   Result := SFGAO_READONLY;
   aPIDLStructure := PIDL_To_TPIDLStructure(apidl);
   if aPIDLStructure.ItemType = ITEM_OFFLINE_BROWSER_FOLDER then
-    Result := Result or (SFGAO_FOLDER or SFGAO_HASSUBFOLDER);
+    Result := Result or (SFGAO_FOLDER or SFGAO_HASSUBFOLDER or SFGAO_BROWSABLE);
 end;
 
 function TShellFolderOfflineBrowserFolder.GetDefaultColumn(var pSort,
@@ -247,10 +241,14 @@ begin
 end;
 
 function TShellFolderOfflineBrowserFolder.GetIContextMenuImpl(
-  pidl: PItemIDList): IContextMenu;
+  pidl: PItemIDList): TIContextMenuImpl;
+begin
+  Result := TIContextMenuImplOfflineBrowserFolder.Create(pidl);
+end;
+
+function TShellFolderOfflineBrowserFolder.GetViewForm: TShellViewForm;
 begin
   Result := nil;
-//  Result := TIContextMenuImplOfflineBrowserFolder.Create(pidl);
 end;
 
 function TEnumIDListOfflineBrowserFolder.Clone(out ppenum: IEnumIDList): HResult;
@@ -350,13 +348,10 @@ function TIExtractIconImplWOfflineBrowserFolder.Extract(pszFile: PWideChar;
   nIconIndex: Cardinal; out phiconLarge, phiconSmall: HICON;
   nIconSize: Cardinal): HRESULT;
 var
-  bHandle : HICON;
   aPIDLStructure : TPIDLStructure;
   aFile : TOfflineBrowserFile;
   Ext : string;
 begin
-  Result := S_FALSE;
-
   aPIDLStructure := SelfPIDL;
   case aPIDLStructure.ItemType of
     ITEM_OFFLINE_BROWSER_FOLDER:
@@ -380,90 +375,21 @@ begin
   Result := S_OK;
 end;
 
+
+
 { TIContextMenuImplOfflineBrowserFolder }
 
-constructor TIContextMenuImplOfflineBrowserFolder.Create(pidl : PItemIDList);
+procedure TIContextMenuImplOfflineBrowserFolder.PopulateItems;
 var
   pmi : TMenuItemIdentified;
 begin
   inherited;
-  FPopupMenu := TPopupMenuIdentified.Create(nil);
-
   pmi := TMenuItemIdentified.Create(FPopupMenu);
-  pmi.Default := true;
+  pmi.Default := True;
   pmi.Caption := 'Open';
   pmi.Tag := 1;
-  FPopupMenu.Items.Add(pmi);
-
-  pmi := TMenuItemIdentified.Create(FPopupMenu);
-  pmi.Caption := 'Fuck';
-  pmi.Tag := 2;
+  pmi.SpecialCommand := MENUITEM_SPECIAL_COMMAND_OPEN;
   FPopupMenu.Items.Add(pmi);
 end;
-
-destructor TIContextMenuImplOfflineBrowserFolder.Destroy;
-begin
-  FPopupMenu.Free;
-  inherited;
-end;
-
-function TIContextMenuImplOfflineBrowserFolder.GetCommandString(idCmd, uType: Cardinal;
-  pwReserved: PUINT; pszName: PAnsiChar; cchMax: Cardinal): HRESULT;
-begin
-  Result := E_NOTIMPL;
-end;
-
-function TIContextMenuImplOfflineBrowserFolder.InvokeCommand(
-  var lpici: _CMINVOKECOMMANDINFO): HRESULT;
-var
-  amii : TMenuItemIdentified;
-begin
-  if HiWord(Integer(lpici.lpVerb)) <> 0 then
-  begin
-    Result := E_FAIL;
-    Exit;
-  end;
-  OutputDebugString3('Quering number '+inttostr(LoWord(lpici.lpVerb)));
-  amii := FPopupMenu.FindItemByIDInMenu(LoWord(lpici.lpVerb));
-  if Assigned(amii) then
-    begin
-      amii.OnClick(amii);
-//      ShowMessage(amii.Caption);
-    end;
-  Result := S_OK;
-end;
-
-function TIContextMenuImplOfflineBrowserFolder.QueryContextMenu(Menu: HMENU; indexMenu,
-  idCmdFirst, idCmdLast, uFlags: Cardinal): HRESULT;
-var
-  aMenuItem : TMenuItem;
-  count : word;
-  flags : Cardinal;
-  MenuItemInfo : tagMENUITEMINFO;
-begin
-  count := 0;
-  for aMenuItem in FPopupMenu.Items do
-  begin
-    flags := MF_STRING;
-    if aMenuItem.Default then
-      flags := flags or MF_DEFAULT;
-    MenuItemInfo.cbSize := SizeOf(tagMENUITEMINFO);
-    MenuItemInfo.fMask := MIIM_ID or MIIM_STRING or MIIM_STATE;
-    MenuItemInfo.fType := MFT_STRING;
-    if aMenuItem.Default then
-      MenuItemInfo.fState := MFS_DEFAULT
-    else
-      MenuItemInfo.fState := MFS_ENABLED;
-    MenuItemInfo.wID := idCmdFirst + count;
-    MenuItemInfo.dwTypeData := PWideChar(aMenuItem.Caption);
-    MenuItemInfo.cch := Length(aMenuItem.Caption);
-    InsertMenuItem(Menu, indexMenu+count, True, MenuItemInfo);
-//    InsertMenu(Menu, indexMenu, flags, idCmdFirst+count);
-    TMenuItemIdentified(aMenuItem).IDInMenu := count;
-    Inc(count);
-  end;
-  Result := count;
-end;
-
 
 end.

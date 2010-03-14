@@ -416,7 +416,7 @@ function InvokeInterfaceElement(Filename: string; AFolder: IShellFolder;
         end;
       icVerb:
         begin
-          ICI.lpVerb := PAnsiChar(Verb);
+          ICI.lpVerb := PAnsiChar(AnsiString(Verb));
           Result := Succeeded(CtxMenu.InvokeCommand(ICI));
         end;
       icProperties:

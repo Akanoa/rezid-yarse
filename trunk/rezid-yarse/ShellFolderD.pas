@@ -2,9 +2,54 @@ unit ShellFolderD;
 
 interface
 
-uses Classes, Windows, PIDLs, ShlObj, Menus;
+uses Classes, Windows, PIDLs, ShlObj, Menus, Forms, ShellFolderView, ActiveX;
+
+const
+  {$EXTERNALSYM SID_SShellBrowser}
+  SID_SShellBrowser = '{000214E2-0000-0000-C000-000000000046}';
+  {$EXTERNALSYM IID_SShellBrowser}
+  IID_SShellBrowser: TGUID = SID_SShellBrowser;
+
+  MENUITEM_SPECIAL_COMMAND_NONE = 0;
+  MENUITEM_SPECIAL_COMMAND_OPEN = 1;
+  MENUITEM_SPECIAL_COMMAND_EXPLORE = 2;
 
 type
+  TMenuItemIdentified = class(TMenuItem)
+    protected
+      FIDInMenu : integer;
+      FSpecialCommand : Byte;
+    public
+      constructor Create(AOwner: TComponent); override;
+      property IDInMenu : Integer read FIDInMenu write FIDInMenu;
+      property SpecialCommand : Byte read FSpecialCommand write FSpecialCommand;
+  end;
+
+  TPopupMenuIdentified = class(TPopupMenu)
+    public
+      function FindItemByIDInMenu(IDInMenu : Integer) : TMenuItemIdentified;
+  end;
+
+  TIContextMenuImpl = class(TInterfacedObject, IContextMenu, IObjectWithSite)
+   protected
+    SelfPIDL : TPIDLStructure;
+    Site : IUnknown;
+    FPopupMenu : TPopupMenuIdentified;
+  public
+    constructor Create(pidl : PItemIDList); virtual;
+    destructor Destroy; override;
+    procedure PopulateItems; virtual; abstract;
+    {IContextMenu}
+    function GetCommandString(idCmd: Cardinal; uType: Cardinal;
+      pwReserved: PUINT; pszName: PAnsiChar; cchMax: Cardinal): HRESULT; stdcall;
+    function InvokeCommand(var lpici: _CMINVOKECOMMANDINFO): HRESULT; stdcall;
+    function QueryContextMenu(Menu: HMENU; indexMenu: Cardinal;
+      idCmdFirst: Cardinal; idCmdLast: Cardinal; uFlags: Cardinal): HRESULT; stdcall;
+    {IObjectWithSite}
+    function GetSite(const riid: TGUID; out site: IInterface): HRESULT; stdcall;
+    function SetSite(const pUnkSite: IInterface): HRESULT; stdcall;
+  end;
+
   TEasyInterfacedObject = class(TObject, IUnknown)
   private
     FReferenceCount: Boolean;
@@ -34,12 +79,14 @@ type
       function EnumObjects(grfFlags:DWORD) : IEnumIDList; virtual; stdcall; abstract;
       function GetDisplayNameOf(pidl:PItemIDList;uFlags:DWORD) : string; virtual; abstract;
       function GetExtractIconImplW(pidl:PItemIDList) : IExtractIconW; virtual; abstract;
-      function GetIContextMenuImpl(pidl:PItemIDList) : IContextMenu; virtual; abstract;
+      function GetIContextMenuImpl(pidl:PItemIDList) : TIContextMenuImpl; virtual; abstract;
       function GetAttributesOf(apidl:PItemIDList) : UINT; virtual; abstract;
       function GetDefaultColumn(var pSort: Cardinal; var pDisplay: Cardinal): HRESULT; virtual; stdcall; abstract;
       function GetDefaultColumnState(iColumn: Cardinal; var pcsFlags: Cardinal): HRESULT; virtual; stdcall; abstract;
       function GetDetailsOf(pidl: PItemIDList; iColumn: Cardinal; var psd: _SHELLDETAILS): HRESULT; virtual; stdcall; abstract;
       function CompareIDs(pidl1, pidl2:PItemIDList) : integer; virtual; abstract;
+      function GetViewForm : TShellViewForm; virtual; abstract;
+//      procedure PopulateMenu(Menu : TIContextMenuImpl); virtual; abstract;
     protected
   end;
 
@@ -71,39 +118,15 @@ type
     function _Release: Integer; stdcall;
   end;
 
-  TMenuItemIdentified = class(TMenuItem)
-    protected
-      FIDInMenu : integer;
-    public
-      property IDInMenu : Integer read FIDInMenu write FIDInMenu;
-  end;
-
-  TPopupMenuIdentified = class(TPopupMenu)
-    public
-      function FindItemByIDInMenu(IDInMenu : Integer) : TMenuItemIdentified;
-  end;
-
-  TIContextMenuImpl = class(TInterfacedObject, IContextMenu)
-   protected
-    SelfPIDL : TPIDLStructure;
-  public
-    constructor Create(pidl : PItemIDList); virtual;
-    function GetCommandString(idCmd: Cardinal; uType: Cardinal;
-      pwReserved: PUINT; pszName: PAnsiChar; cchMax: Cardinal): HRESULT;
-      virtual; stdcall; abstract;
-    function InvokeCommand(var lpici: _CMINVOKECOMMANDINFO): HRESULT; virtual; stdcall; abstract;
-    function QueryContextMenu(Menu: HMENU; indexMenu: Cardinal;
-      idCmdFirst: Cardinal; idCmdLast: Cardinal; uFlags: Cardinal): HRESULT;
-      virtual; stdcall; abstract;
-  end;
-
 function GetPIDLShellFolderD(pidl : PITEMIDLIST) : TShellFolderD;
 function GetRootShellFolderD(pidl : PITEMIDLIST) : TShellFolderD;
 
 implementation
 
 uses ConstsAndVars, SysUtils,
-     ShellFolderMainMenu, ShellFolderOfflineBrowserRoot, ShellFolderOfflineBrowserHost, ShellFolderOfflineBrowserFolder;
+     ShellFolderMainMenu, ShellFolderOfflineBrowserRoot,
+     ShellFolderOfflineBrowserHost, ShellFolderOfflineBrowserFolder,
+     ShellFolderNewSearch, ShellFolderSearchResults;
 
 function GetPIDLShellFolderD(pidl : PITEMIDLIST) : TShellFolderD;
 var
@@ -117,6 +140,10 @@ begin
         case pidl_structure.ItemInfo1 of
           ITEM_MAIN_MENU_OFFLINE_BROWSER :
             Result := TShellFolderOfflineBrowserRoot.Create(pidl_structure);
+          ITEM_MAIN_MENU_NEW_SEARCH:
+            Result := TShellFolderNewSearch.Create(pidl_structure);
+          ITEM_MAIN_MENU_SEARCH:
+            Result := TShellFolderSearchResultsAll.Create(pidl_structure);
         end;
       end;
     ITEM_OFFLINE_BROWSER_HOST :
@@ -248,6 +275,111 @@ end;
 constructor TIContextMenuImpl.Create(pidl: PItemIDList);
 begin
   SelfPIDL := PIDL_To_TPIDLStructure(pidl);
+  FPopupMenu := TPopupMenuIdentified.Create(nil);
+  Site := nil;
+end;
+
+destructor TIContextMenuImpl.Destroy;
+begin
+  FPopupMenu.Free;
+  inherited;
+end;
+
+function TIContextMenuImpl.GetCommandString(idCmd, uType: Cardinal;
+  pwReserved: PUINT; pszName: PAnsiChar; cchMax: Cardinal): HRESULT;
+begin
+  OutputDebugString3('TIContextMenuImpl.GetCommandString');
+  Result := E_NOTIMPL;
+end;
+
+function TIContextMenuImpl.GetSite(const riid: TGUID;
+  out site: IInterface): HRESULT;
+begin
+  Site := nil;
+  Result := E_NOTIMPL;
+  if Assigned(site) then
+    Result := site.QueryInterface(riid, site);
+end;
+
+function TIContextMenuImpl.InvokeCommand(
+  var lpici: _CMINVOKECOMMANDINFO): HRESULT;
+var
+  amii : TMenuItemIdentified;
+  ShellBrowser : IShellBrowser;
+  ServiceProvider : IServiceProvider;
+begin
+  OutputDebugString3('TIContextMenuImpl.InvokeCommand');
+  if HiWord(Integer(lpici.lpVerb)) <> 0 then
+  begin
+    Result := E_FAIL;
+    Exit;
+  end;
+  OutputDebugString3('Quering number '+inttostr(LoWord(lpici.lpVerb)));
+  amii := FPopupMenu.FindItemByIDInMenu(LoWord(lpici.lpVerb));
+  if Assigned(amii) then
+    begin
+      case amii.FSpecialCommand of
+        MENUITEM_SPECIAL_COMMAND_NONE:
+          begin
+            if Assigned(amii.OnClick) then
+              amii.OnClick(amii);
+          end;
+        MENUITEM_SPECIAL_COMMAND_OPEN:
+          begin
+            ServiceProvider := nil;
+            Site.QueryInterface(IServiceProvider, ServiceProvider);
+            if Assigned(ServiceProvider) then
+              begin
+                ShellBrowser := nil;
+                ServiceProvider.QueryService(IID_SShellBrowser, IShellBrowser, ShellBrowser);
+                if Assigned(ShellBrowser) then
+                  begin
+                    ShellBrowser.BrowseObject(TPIDLStructure_To_PIDl(Self.SelfPIDL), SBSP_RELATIVE);
+                  end;
+              end;
+          end;
+        MENUITEM_SPECIAL_COMMAND_EXPLORE:
+          begin
+
+          end;
+      end;
+    end;
+  Result := S_OK;
+end;
+
+function TIContextMenuImpl.QueryContextMenu(Menu: HMENU; indexMenu, idCmdFirst,
+  idCmdLast, uFlags: Cardinal): HRESULT;
+var
+  aMenuItem : TMenuItem;
+  count : word;
+  MenuItemInfo : tagMENUITEMINFO;
+begin
+  OutputDebugString3('TIContextMenuImpl.QueryContextMenu');
+  count := 0;
+  for aMenuItem in FPopupMenu.Items do
+  begin
+    MenuItemInfo.cbSize := SizeOf(tagMENUITEMINFO);
+    MenuItemInfo.fMask := MIIM_ID or MIIM_STRING or MIIM_STATE;
+    MenuItemInfo.fType := MFT_STRING;
+    if aMenuItem.Default then
+      MenuItemInfo.fState := MFS_DEFAULT
+    else
+      MenuItemInfo.fState := MFS_ENABLED;
+    MenuItemInfo.wID := idCmdFirst + count;
+    MenuItemInfo.dwTypeData := PWideChar(aMenuItem.Caption);
+    MenuItemInfo.cch := Length(aMenuItem.Caption);
+    InsertMenuItem(Menu, indexMenu+count, True, MenuItemInfo);
+    TMenuItemIdentified(aMenuItem).IDInMenu := count;
+    Inc(count);
+  end;
+  Result := count;
+end;
+
+function TIContextMenuImpl.SetSite(const pUnkSite: IInterface): HRESULT;
+begin
+  OutputDebugString3('TIContextMenuImpl.SetSite');
+  Site := pUnkSite;
+  Result := S_OK;
 end;
 
 { TPopupMenuIdentified }
@@ -268,6 +400,14 @@ begin
           Exit;
         end;
     end;
+end;
+
+{ TMenuItemIdentified }
+
+constructor TMenuItemIdentified.Create(AOwner: TComponent);
+begin
+  inherited;
+  SpecialCommand := MENUITEM_SPECIAL_COMMAND_NONE;
 end;
 
 end.

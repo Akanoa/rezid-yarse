@@ -41,7 +41,9 @@ uses
   ShellFolderOfflineBrowserRoot in 'ShellFolders\ShellFolderOfflineBrowserRoot.pas',
   ShellFolderOfflineBrowserHost in 'ShellFolders\ShellFolderOfflineBrowserHost.pas',
   ShellFolderOfflineBrowserFolder in 'ShellFolders\ShellFolderOfflineBrowserFolder.pas',
-  ShellIcons in 'ShellIcons.pas';
+  ShellIcons in 'ShellIcons.pas',
+  ShellFolderNewSearch in 'ShellFolders\ShellFolderNewSearch.pas',
+  ShellFolderSearchResults in 'ShellFolders\ShellFolderSearchResults.pas';
 
 {$R *.res}
 {$R AdditionalRessources.res}
