@@ -2,7 +2,7 @@ unit ShellFolderMainMenu;
 
 interface
 
-uses Classes, ShellFolderD, PIDLs, ShlObj, Windows, Graphics, Menus;
+uses Classes, ShellFolderD, PIDLs, ShlObj, Windows, Graphics, Menus, Forms, ShellFolderView, ActiveX;
 
 type
   TIExtractIconImplWMainMenu = class(TIExtractIconImplW)
@@ -26,12 +26,14 @@ type
       function EnumObjects(grfFlags:DWORD) : IEnumIDList; override; stdcall;
       function GetDisplayNameOf(pidl:PItemIDList;uFlags:DWORD) : string; override;
       function GetExtractIconImplW(pidl:PItemIDList) : IExtractIconW; override;
-      function GetIContextMenuImpl(pidl: PItemIDList): IContextMenu; override;
+      function GetIContextMenuImpl(pidl: PItemIDList): TIContextMenuImpl; override;
       function GetAttributesOf(apidl:PItemIDList) : UINT; override;
       function GetDefaultColumn(var pSort: Cardinal; var pDisplay: Cardinal): HRESULT; override;
       function GetDefaultColumnState(iColumn: Cardinal; var pcsFlags: Cardinal): HRESULT; override;
       function GetDetailsOf(pidl: PItemIDList; iColumn: Cardinal; var psd: _SHELLDETAILS): HRESULT; override;
       function CompareIDs(pidl1, pidl2:PItemIDList) : integer; override;
+      function GetViewForm : TShellViewForm; override;
+//      procedure PopulateMenu(Menu: TIContextMenuImpl); override;
       {Bonus}
       destructor Destroy; override;
       constructor Create(PIDL: TPIDLStructure); override;
@@ -48,24 +50,14 @@ type
   end;
 
   TIContextMenuImplMainMenu = class(TIContextMenuImpl)
-  private
-    FPopupMenu : TPopupMenuIdentified;
   public
-    {Bonus}
-    constructor Create(pidl : PItemIDList); virtual;
-    destructor Destroy; override;
-    {IContextMenu}
-    function GetCommandString(idCmd: Cardinal; uType: Cardinal; pwReserved: PUINT; pszName: PAnsiChar; cchMax: Cardinal): HRESULT; override; stdcall;
-    function InvokeCommand(var lpici: _CMINVOKECOMMANDINFO): HRESULT; override; stdcall;
-    function QueryContextMenu(Menu: HMENU; indexMenu: Cardinal; idCmdFirst: Cardinal; idCmdLast: Cardinal; uFlags: Cardinal): HRESULT; override; stdcall;
-    {Actions}
-    procedure Action_NewSearch(Sender: TObject);
+    procedure PopulateItems; override;
   end;
 
 implementation
 
-uses ConstsAndVars, Dialogs, Sysutils, CommCtrl, NewSearch,
-     ShellFolderOfflineBrowserRoot, ShellIcons;
+uses ConstsAndVars, Dialogs, Sysutils, CommCtrl,
+     ShellFolderOfflineBrowserRoot, ShellIcons, Searching;
 
 { TShellFolderMainMenu }
 
@@ -124,11 +116,15 @@ begin
   case aPIDLStructure.ItemInfo1 of
     ITEM_MAIN_MENU_OFFLINE_BROWSER:
       begin
-        Result := Result or SFGAO_FOLDER or SFGAO_HASSUBFOLDER;
+        Result := Result or SFGAO_FOLDER or SFGAO_HASSUBFOLDER or SFGAO_BROWSABLE;
       end;
     ITEM_MAIN_MENU_NEW_SEARCH:
       begin
-        //Rien
+        Result := Result or SFGAO_FOLDER or SFGAO_HASSUBFOLDER or SFGAO_BROWSABLE;
+      end;
+    ITEM_MAIN_MENU_SEARCH:
+      begin
+        Result := Result or SFGAO_FOLDER or SFGAO_HASSUBFOLDER or SFGAO_BROWSABLE;
       end;
   end;
 end;
@@ -182,6 +178,13 @@ begin
               1: sString := 'Nouvelle recherche (détails)';
             end;
           end;
+        ITEM_MAIN_MENU_SEARCH:
+          begin
+            case iColumn of
+              0: sString := 'Recherche';
+              1: sString := 'Recherche (détails)';
+            end;
+          end;
       end;
     end
   else
@@ -202,6 +205,7 @@ function TShellFolderMainMenu.GetDisplayNameOf(pidl: PItemIDList;
   uFlags: DWORD): string;
 var
   aPIDLStructure : TPIDLStructure;
+  aSearch : TSearch;
 begin
   OutputDebugStringFoldersD('TShellFolderMainMenu.GetDisplayNameOf');
   Result := 'ERROR';
@@ -219,6 +223,13 @@ begin
     ITEM_MAIN_MENU_NEW_SEARCH:
       begin
         Result := 'Nouvelle recherche';
+      end;
+    ITEM_MAIN_MENU_SEARCH:
+      begin
+        Result := 'Recherche inconnue';
+        aSearch := GetSearchByID(aPIDLStructure.ItemInfo2);
+        if Assigned(aSearch) then
+          Result := 'Recherche: '+aSearch.Searched_string;
       end;
   end;
 end;
@@ -238,30 +249,24 @@ begin
 end;
 
 function TShellFolderMainMenu.GetIContextMenuImpl(
-  pidl: PItemIDList): IContextMenu;
+  pidl: PItemIDList): TIContextMenuImpl;
 var
   aPIDLStructure : TPIDLStructure;
 begin
   Result := nil;
-  Exit;
   aPIDLStructure := PIDL_To_TPIDLStructure(pidl);
   if aPIDLStructure.ItemType <> ITEM_MAIN_MENU then
     begin
       Exit;
     end;
-
-  case aPIDLStructure.ItemInfo1 of
-    ITEM_MAIN_MENU_OFFLINE_BROWSER:
-      begin
-
-      end;
-    ITEM_MAIN_MENU_NEW_SEARCH:
-      begin
-        Result := TIContextMenuImplMainMenu.Create(pidl);
-      end;
-  end;
+  Result := TIContextMenuImplMainMenu.Create(pidl);
 end;
 
+
+function TShellFolderMainMenu.GetViewForm: TShellViewForm;
+begin
+  Result := nil;
+end;
 
 function TEnumIDListMainMenu.Clone(out ppenum: IEnumIDList): HResult;
 begin
@@ -309,6 +314,7 @@ end;
 procedure TShellFolderMainMenu.RebuildPIDLList;
 var
   aPidlStructure : TPIDLStructure;
+  i : word;
 begin
   FPIDLList.Clear;
 
@@ -322,6 +328,14 @@ begin
   aPidlStructure.ItemInfo2 := 1;
   FPIDLList.Add(TPIDLStructure_To_PIDl(aPidlStructure));
 
+  if AllSearches.Count > 0 then
+    for i := 0 to AllSearches.Count - 1 do
+      begin
+        aPidlStructure.ItemType := ITEM_MAIN_MENU;
+        aPidlStructure.ItemInfo1 := ITEM_MAIN_MENU_SEARCH;
+        aPidlStructure.ItemInfo2 := TSearch(AllSearches[i]).Search_ID;
+        FPIDLList.Add(TPIDLStructure_To_PIDl(aPidlStructure));
+      end;
 end;
 
 { TIExtractIconImplWMainMenu }
@@ -360,107 +374,35 @@ begin
         phiconSmall := GetRessourceIconHandle('SEARCH');
         Result := S_OK;
       end;
+    ITEM_MAIN_MENU_SEARCH:
+      begin
+        phiconLarge := GetRessourceIconHandle('SEARCH_FOLDER');
+        phiconSmall := GetRessourceIconHandle('SEARCH_FOLDER');
+        Result := S_OK;
+      end;
   end;
 
 end;
 
+//procedure TIContextMenuImplMainMenu.Populate;
+//begin
+//
+//end;
+
+
 { TIContextMenuImplMainMenu }
 
-constructor TIContextMenuImplMainMenu.Create(pidl : PItemIDList);
+procedure TIContextMenuImplMainMenu.PopulateItems;
 var
   pmi : TMenuItemIdentified;
 begin
   inherited;
-  FPopupMenu := TPopupMenuIdentified.Create(nil);
-
   pmi := TMenuItemIdentified.Create(FPopupMenu);
-  pmi.Default := true;
+  pmi.Default := True;
   pmi.Caption := 'Open';
   pmi.Tag := 1;
-  pmi.OnClick := Self.Action_NewSearch;
+  pmi.SpecialCommand := MENUITEM_SPECIAL_COMMAND_OPEN;
   FPopupMenu.Items.Add(pmi);
-
-  pmi := TMenuItemIdentified.Create(FPopupMenu);
-  pmi.Caption := 'Fuck';
-  pmi.Tag := 2;
-  FPopupMenu.Items.Add(pmi);
-end;
-
-destructor TIContextMenuImplMainMenu.Destroy;
-begin
-  FPopupMenu.Free;
-  inherited;
-end;
-
-function TIContextMenuImplMainMenu.GetCommandString(idCmd, uType: Cardinal;
-  pwReserved: PUINT; pszName: PAnsiChar; cchMax: Cardinal): HRESULT;
-begin
-  Result := E_NOTIMPL;
-end;
-
-function TIContextMenuImplMainMenu.InvokeCommand(
-  var lpici: _CMINVOKECOMMANDINFO): HRESULT;
-var
-  amii : TMenuItemIdentified;
-begin
-  if HiWord(Integer(lpici.lpVerb)) <> 0 then
-  begin
-    Result := E_FAIL;
-    Exit;
-  end;
-  OutputDebugString3('Quering number '+inttostr(LoWord(lpici.lpVerb)));
-  amii := FPopupMenu.FindItemByIDInMenu(LoWord(lpici.lpVerb));
-  if Assigned(amii) then
-    begin
-      amii.OnClick(amii);
-//      ShowMessage(amii.Caption);
-    end;
-  Result := S_OK;
-end;
-
-function TIContextMenuImplMainMenu.QueryContextMenu(Menu: HMENU; indexMenu,
-  idCmdFirst, idCmdLast, uFlags: Cardinal): HRESULT;
-var
-  aMenuItem : TMenuItem;
-  count : word;
-  flags : Cardinal;
-  MenuItemInfo : tagMENUITEMINFO;
-begin
-  count := 0;
-  for aMenuItem in FPopupMenu.Items do
-  begin
-    flags := MF_STRING;
-    if aMenuItem.Default then
-      flags := flags or MF_DEFAULT;
-    MenuItemInfo.cbSize := SizeOf(tagMENUITEMINFO);
-    MenuItemInfo.fMask := MIIM_ID or MIIM_STRING or MIIM_STATE;
-    MenuItemInfo.fType := MFT_STRING;
-    if aMenuItem.Default then
-      MenuItemInfo.fState := MFS_DEFAULT
-    else
-      MenuItemInfo.fState := MFS_ENABLED;
-    MenuItemInfo.wID := idCmdFirst + count;
-    MenuItemInfo.dwTypeData := PWideChar(aMenuItem.Caption);
-    MenuItemInfo.cch := Length(aMenuItem.Caption);
-    InsertMenuItem(Menu, indexMenu+count, True, MenuItemInfo);
-//    InsertMenu(Menu, indexMenu, flags, idCmdFirst+count);
-    TMenuItemIdentified(aMenuItem).IDInMenu := count;
-    Inc(count);
-  end;
-  Result := count;
-end;
-
-procedure TIContextMenuImplMainMenu.Action_NewSearch(Sender : TObject);
-begin
-  if Assigned(FNewSearch) then
-    begin
-      FNewSearch.Show;
-    end
-  else
-    begin
-      FNewSearch := TFNewSearch.Create(nil);
-      FNewSearch.Show;
-    end;
 end;
 
 end.

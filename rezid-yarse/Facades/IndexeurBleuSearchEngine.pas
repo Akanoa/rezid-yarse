@@ -10,11 +10,12 @@ unit IndexeurBleuSearchEngine;
 
 interface
 
-uses SearchEngineFacade, Classes, SysUtils, OfflineBrowsing, Windows;
+uses SearchEngineFacade, Classes, SysUtils, OfflineBrowsing, Windows, Searching;
 
 type
   TIndexeurBleuSearchEngineFacade = class(TInterfacedObject, IAbstractSearchEngineFacade)
    private
+    class var SearchCount : Integer;
     FCurrentComputerList : TOnlineHostList;
     FCallbackTextInformation : TSearchEngineCallbackTextInformation;
     function GetCallbackTextInformation : TSearchEngineCallbackTextInformation;
@@ -115,6 +116,7 @@ var
   BSL2 : TStrings;
   OnlineListDatAge : TDateTime;
   OnlineListDatAgeMilliSeconds : int64;
+  MustDownload : boolean;
 begin
   if Assigned(FCurrentComputerList) then
     begin
@@ -122,13 +124,19 @@ begin
       Exit;
     end;
   file_name := ExtractFilePath(Sto_GetModuleName())+'online_list.dat';
-  FileAge(file_name, OnlineListDatAge);
-  OnlineListDatAgeMilliSeconds := DateTimeToMilliseconds(OnlineListDatAge);
-  if (OnlineListDatAgeMilliSeconds - (1000 * 60 * 10)) < DateTimeToMilliseconds(Now) then
+  MustDownload := True;
+  if FileExists(file_name) then
     begin
-      //Nous avons un fichier récent en cache
-    end
-  else
+    FileAge(file_name, OnlineListDatAge);
+    OnlineListDatAgeMilliSeconds := DateTimeToMilliseconds(OnlineListDatAge);
+    if (OnlineListDatAgeMilliSeconds - (1000 * 60 * 10)) < DateTimeToMilliseconds(Now) then
+      begin
+        //Nous avons un fichier récent en cache
+        MustDownload := False;
+      end
+  end;
+
+  if MustDownload then
     try
       DeleteFile(PWideChar(file_name));
       DownloadFile('http://rezid.org/clist/clist.php', file_name);
@@ -491,6 +499,8 @@ begin
   CallbackTextInformation('Traitements des résultats...');
 
   Result := TSearch.Create;
+  Inc(SearchCount);
+  Result.Search_ID := SearchCount;
   Result.Searched_string := search_string;
   Result.SearchDate := Now();
   if mysql_num_rows(mysql_res) > 0 then

@@ -13,14 +13,14 @@ interface
 uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
   Dialogs, StdCtrls, ExtCtrls, ComCtrls, ConstsAndVars, ShellAPI,
-  ImgList, ShlObj, SearchEngineFacade;
+  ImgList, ShlObj, SearchEngineFacade, ShellFolderView;
 
 type
-  TFNewSearch = class(TForm)
+  TFNewSearch = class(TShellViewForm)
+    ScrollBox1: TScrollBox;
     gbMainSearch: TGroupBox;
     leSearchTerm: TLabeledEdit;
     pOkCancel: TPanel;
-    bCancel: TButton;
     bOK: TButton;
     StatusBar1: TStatusBar;
     lbInformation: TListBox;
@@ -29,18 +29,18 @@ type
     rbSearchInFullPath: TRadioButton;
     gbSearchWhat: TGroupBox;
     iVideoFiles: TImage;
-    cbFileVideo: TCheckBox;
     iAllFiles: TImage;
-    cbFileAudio: TCheckBox;
     iAudioFiles: TImage;
     iFolders: TImage;
-    SysIco_Small: TImageList;
-    SysIco_Big: TImageList;
-    cbFileImage: TCheckBox;
     iImages: TImage;
+    cbFileVideo: TCheckBox;
+    cbFileAudio: TCheckBox;
+    cbFileImage: TCheckBox;
     rbEveryFiles: TRadioButton;
     rbFileFolders: TRadioButton;
     rbCustom: TRadioButton;
+    SysIco_Small: TImageList;
+    SysIco_Big: TImageList;
     procedure bCancelClick(Sender: TObject);
     procedure leSearchTermKeyDown(Sender: TObject; var Key: Word;
       Shift: TShiftState);
@@ -52,6 +52,7 @@ type
     { Private declarations }
   public
     { Public declarations }
+    MainMenuPIDL : PItemIDList;
     procedure AdaptPicturesFromSystem;
     procedure CheckForOkButtonToBeEnable;
   end;
@@ -63,7 +64,7 @@ procedure Callback(text: string);
 
 implementation
 
-uses Searching;
+uses Searching, ShellFolder, PIDLs;
 
 {$R *.dfm}
 
@@ -103,6 +104,7 @@ end;
 procedure TFNewSearch.FormShow(Sender: TObject);
 begin
   AdaptPicturesFromSystem;
+  CheckForOkButtonToBeEnable;
 end;
 
 procedure TFNewSearch.AdaptPicturesFromSystem;
@@ -195,7 +197,6 @@ var
 begin
   if bOK.Tag = 1 then
     begin
-      Close;
       Exit;
     end;
   Screen.Cursor := crHourGlass;
@@ -222,7 +223,13 @@ begin
       Exit;
     end;
     AllSearches.Add(Search);
-  //  SHChangeNotify(SHCNE_UPDATEDIR, SHCNF_IDLIST or SHCNF_FLUSHNOWAIT, InitPIDL, nil);
+    if Assigned(ShellBrowser) then
+      begin
+//        aPidl := CopyPIDL(TCustomShellFolder(ShellFolder).SeInitPIDL);
+//        aPidl := StripLastID(aPidl);
+        ShellBrowser.BrowseObject(nil, SBSP_PARENT);
+      end;
+//    SHChangeNotify(SHCNE_UPDATEDIR, SHCNF_IDLIST or SHCNF_FLUSHNOWAIT, MainMenuPIDL, nil);
     bOk.Tag := 1;
   finally
     Screen.Cursor := crDefault;
@@ -231,7 +238,8 @@ end;
 
 procedure Callback(text: string);
 begin
-  FNewSearch.lbInformation.Items.Add(text);
+  if Assigned(FNewSearch) then
+    FNewSearch.lbInformation.Items.Add(text);
 end;
 
 procedure TFNewSearch.leSearchTermKeyDown(Sender: TObject; var Key: Word;

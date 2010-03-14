@@ -21,12 +21,12 @@ type
    TCustomShellFolder=class(TComObject, IShellFolder, IShellFolder2, IPersistFolder, IPersistFolder2, IPersistIDList)
    private
      FShellFolderD : TShellFolderD;
-     //This folder really has some sex-aPIDL
-     SeInitPIDL : PItemIDList;
    protected
       function IPersistFolder.Initialize=PersistInitialize;
       function IPersistFolder2.Initialize=PersistInitialize;
    public
+      //This folder really has some sex-aPIDL
+      SeInitPIDL : PItemIDList;
       {IShellFolder}
       function ParseDisplayName(hwndOwner:HWND;pbcReserved:Pointer;
            lpszDisplayName:POLESTR; out pchEaten:ULONG; out ppidl:PItemIDList;
@@ -135,10 +135,9 @@ var
   ObjectCount: Integer = 0;
   SHCreateShellFolderView: TSHCreateShellFolderView = nil;
 
-
 implementation
 
-uses Registry, ShellFolderMainMenu;
+uses Registry, ShellFolderMainMenu, Forms;
 
 type
     TShellFolderObjectFactory=class(TComObjectFactory)
@@ -239,6 +238,7 @@ function TCustomShellFolder.CreateViewObject(hwndOwner:HWND;
 var
   CreateData: TShellViewCreate;
   LocalView: IShellView;
+  ViewForm : TShellViewForm;
 begin
   Pointer(ppvOut):=nil;
   Result:=E_NOINTERFACE;
@@ -246,13 +246,25 @@ begin
   if IsEqualGUID(riid,IShellView) then
     begin
       OutputDebugString2(PWideChar('TCustomShellFolder.CreateViewObject - IShellView'));
-      CreateData.dwSize := SizeOf(CreateData);
-      CreateData.pfnCallback := nil;
-      CreateData.pShellFolder := Self as IShellFolder;
-      CreateData.psvOuter := nil;
-      Result := SHCreateShellFolderView(CreateData, LocalView);
-      IShellView(ppvOut) := LocalView;
-      CreateData.pShellFolder._Release;
+      ViewForm := FShellFolderD.GetViewForm;
+      if Assigned(ViewForm) then
+        begin
+          LocalView := TShellViewImpl.Create(ViewForm, Self);
+          ViewForm.ShellView := LocalView;
+          ViewForm.ShellFolder := Self;
+          IShellView(ppvOut) := LocalView;
+          Result := S_OK;
+        end
+      else
+        begin
+          CreateData.dwSize := SizeOf(CreateData);
+          CreateData.pfnCallback := nil;
+          CreateData.pShellFolder := Self as IShellFolder;
+          CreateData.psvOuter := nil;
+          Result := SHCreateShellFolderView(CreateData, LocalView);
+          IShellView(ppvOut) := LocalView;
+          CreateData.pShellFolder._Release;
+        end;
    end;
 end;
 
@@ -280,7 +292,7 @@ function TCustomShellFolder.GetUIObjectOf(hwndOwner:HWND;cidl:UINT;
    var apidl:PItemIDList;const riid:TIID;prgfInOut:Pointer;out ppvOut):HResult;
 var
   ExtractIconImplW : IExtractIconW;
-  ContextMenuImpl : IContextMenu;
+  ContextMenuImpl : TIContextMenuImpl;
 begin
   OutputDebugString2(PWideChar('TCustomShellFolder.GetUIObjectOf - '+GUIDToString(riid)));
   Result := E_NOTIMPL;
@@ -295,7 +307,10 @@ begin
     begin
       ContextMenuImpl := FShellFolderD.GetIContextMenuImpl(apidl);
       if Assigned(ContextMenuImpl) then
-        Result := ContextMenuImpl.QueryInterface(riid, ppvOut);
+        begin
+          ContextMenuImpl.PopulateItems;
+          Result := (ContextMenuImpl as IContextMenu).QueryInterface(riid, ppvOut);
+        end;
     end
   else
     begin
