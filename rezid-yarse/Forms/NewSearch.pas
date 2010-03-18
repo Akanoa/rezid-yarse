@@ -219,6 +219,7 @@ begin
       end;
     try
       Search := SearchEngine.MakeSearch(leSearchTerm.Text, SearchIn);
+      Search.CreateVirtualFolders;
     except
       Exit;
     end;

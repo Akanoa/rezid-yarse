@@ -196,7 +196,7 @@ begin
           begin
             APIDL := AppendPIDL(SeInitPIDL, pidl);
             OutputDebugString2('SeINIT: '+IntToStr(PIDLSize(SeInitPIDL))+' pidl:'+IntToStr(pidlsize(pidl))+' total:'+inttostr(pidlsize(APIDL)));
-            OutputDebugString3('BIND IShellFolder!');
+//            OutputDebugString3('BIND IShellFolder!');
             pShellFolder := TCustomShellFolder.Create(dShellFolderD);
             pShellFolder.PersistInitialize(APIDL);
             (pShellFolder as IShellFolder).QueryInterface(riid, ppvOut);

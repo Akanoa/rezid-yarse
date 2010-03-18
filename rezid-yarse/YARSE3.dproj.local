@@ -30,5 +30,8 @@
     <Transaction>2010/02/26 18:39:14.921.pas,E:\Projects\Rezid\SearchEngine\NExplorerClient3\PlateformSDK\ShlExt.pas=</Transaction>
     <Transaction>2010/02/26 18:39:14.921.pas,E:\Projects\Rezid\SearchEngine\NExplorerClient3\PlateformSDK\ShlObj2.pas=</Transaction>
     <Transaction>2010/03/05 20:43:01.031.pas,E:\Projects\Rezid\SearchEngine\NExplorerClient3\Unit5.pas=E:\Projects\Rezid\SearchEngine\NExplorerClient3\ShellIcons.pas</Transaction>
+    <Transaction>2010/03/15 19:35:27.500.pas,E:\Projects\Rezid\SearchEngine\NExplorerClient3\ShellFolders\ShellFolderSearchResultsHostsFolder.pas=</Transaction>
+    <Transaction>2010/03/15 19:35:29.890.pas,E:\Projects\Rezid\SearchEngine\NExplorerClient3\ShellFolders\ShellFolderSearchResultsHostsHost.pas=</Transaction>
+    <Transaction>2010/03/15 19:35:50.859.pas,E:\Projects\Rezid\SearchEngine\NExplorerClient3\ShellFolders\ShellFolderSearchResultsHostsRoot.pas=</Transaction>
   </Transactions>
 </BorlandProject>

@@ -26,6 +26,9 @@ const
   ITEM_OFFLINE_BROWSER_FILE = 204;
 
   ITEM_SEARCH_ITEM = 221;
+  ITEM_SEARCH_SORT_HOSTS = 222;
+  ITEM_SEARCH_SORT_HOSTS_HOST = 2221;
+  ITEM_SEARCH_SORT_HOSTS_FOLDER = 2222;
 
 
 function Sto_GetModuleName: String;
@@ -67,7 +70,7 @@ end;
 
 procedure OutputDebugString3(m : string);
 begin
-//  OutputDebugString(PWideChar(m));
+  OutputDebugString(PWideChar(m));
 end;
 
 procedure OutputDebugStringFoldersD(m : string);
