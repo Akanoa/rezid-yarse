@@ -67,6 +67,8 @@ var
   pidl_struct1, pidl_struct2 : TPIDLStructure;
   temp_result : Integer;
 begin
+  Result := ComparePIDLs(pidl1, pidl2);
+  Exit;
   pidl_struct1 := PIDL_To_TPIDLStructure(GetPointerToLastID(pidl1));
   pidl_struct2 := PIDL_To_TPIDLStructure(GetPointerToLastID(pidl2));
   temp_result := pidl_struct1.ItemInfo1 - pidl_struct2.ItemInfo1;
@@ -120,8 +122,16 @@ begin
   OutputDebugStringFoldersD('TShellFolderSearchResultsAll.GetAttributesOf');
   Result := SFGAO_READONLY;
   aPIDLStructure := PIDL_To_TPIDLStructure(apidl);
-  if aPIDLStructure.ItemType = ITEM_OFFLINE_BROWSER_FOLDER then
-    Result := Result or (SFGAO_FOLDER or SFGAO_HASSUBFOLDER or SFGAO_BROWSABLE);
+  case aPIDLStructure.ItemType of
+    ITEM_SEARCH_ITEM:
+      begin
+        //Rien
+      end;
+    ITEM_SEARCH_SORT_HOSTS:
+      begin
+        Result := Result or SFGAO_FOLDER or SFGAO_HASSUBFOLDER or SFGAO_BROWSABLE;
+      end;
+  end;
 end;
 
 function TShellFolderSearchResultsAll.GetDefaultColumn(var pSort,
@@ -159,16 +169,30 @@ begin
   if Assigned(pidl)then
     begin
       aPIDLStructure := PIDL_To_TPIDLStructure(pidl);
-      aSearchResult := PIDLStructToSearchResult(aPIDLStructure);
-      if Assigned(aSearchResult) then
-        begin
-          case iColumn of
-            0: sString := aSearchResult.Name;
-            1: sString := aSearchResult.FileType;
-            2: sString := FormatFileSize(aSearchResult.Size, 2);
-            3: sString := aSearchResult.Path;
+      case aPIDLStructure.ItemType of
+        ITEM_SEARCH_ITEM:
+          begin
+            aSearchResult := PIDLStructToSearchResult(aPIDLStructure);
+            if Assigned(aSearchResult) then
+              begin
+                case iColumn of
+                  0: sString := aSearchResult.Name;
+                  1: sString := aSearchResult.FileType;
+                  2: sString := FormatFileSize(aSearchResult.Size, 2);
+                  3: sString := aSearchResult.Path;
+                end;
+              end;
           end;
-        end;
+        ITEM_SEARCH_SORT_HOSTS:
+          begin
+            case iColumn of
+              0: sString := 'Arborescence par hôtes';
+              1: sString := '';
+              2: sString := '';
+              3: sString := '';
+            end;
+          end;
+      end;
       end
   else
     begin
@@ -195,13 +219,20 @@ begin
   OutputDebugStringFoldersD('TShellFolderSearchResultsAll.GetDisplayNameOf');
   Result := 'Fichier ou dossier inconnu';
   aPIDLStructure := PIDL_To_TPIDLStructure(pidl);
-  if aPIDLStructure.ItemType <> ITEM_SEARCH_ITEM then
-    Exit;
-  aSearchResult := PIDLStructToSearchResult(aPIDLStructure);
-  if Assigned(aSearchResult) then
-    begin
-      Result := aSearchResult.Name;
-    end;
+  case aPIDLStructure.ItemType of
+    ITEM_SEARCH_ITEM:
+      begin
+        aSearchResult := PIDLStructToSearchResult(aPIDLStructure);
+        if Assigned(aSearchResult) then
+          begin
+            Result := aSearchResult.Name;
+          end;
+      end;
+    ITEM_SEARCH_SORT_HOSTS:
+      begin
+        Result := 'Arborescence par hôtes';
+      end;
+  end;
 end;
 
 function TShellFolderSearchResultsAll.GetExtractIconImplW(pidl:PItemIDList): IExtractIconW;
@@ -282,6 +313,12 @@ var
 begin
   OutputDebugStringFoldersD('TShellFolderSearchResultsAll.RebuildPIDLList');
   FPIDLListAll.Clear;
+
+  aPidlStructure.ItemType := ITEM_SEARCH_SORT_HOSTS;
+  aPidlStructure.ItemInfo1 := FSearch.Search_ID;
+  aPidlStructure.ItemInfo2 := 0;
+  FPIDLListAll.Add(TPIDLStructure_To_PIDl(aPidlStructure));
+
   if Length(FSearch.Search_Results) > 0 then
     begin
       for i := 0 to Length(FSearch.Search_Results) - 1 do
@@ -316,18 +353,27 @@ begin
   Result := S_FALSE;
 
   aPIDLStructure := SelfPIDL;
-  if aPIDLStructure.ItemType <> ITEM_SEARCH_ITEM then
-    Exit;
-  aSearchResult := PIDLStructToSearchResult(aPIDLStructure);
-  if Assigned(aSearchResult) then
-    begin
-      Ext := ExtractFileExt(aSearchResult.Name)
-    end
-  else
-    Ext := '.';
-  phiconLarge := GetExtensionIconHandle(Ext, SHGFI_LARGEICON);
-  phiconSmall := GetExtensionIconHandle(Ext, SHGFI_SMALLICON);
-  Result := S_OK;
+  case aPIDLStructure.ItemType of
+    ITEM_SEARCH_ITEM:
+      begin
+        aSearchResult := PIDLStructToSearchResult(aPIDLStructure);
+        if Assigned(aSearchResult) then
+          begin
+            Ext := ExtractFileExt(aSearchResult.Name)
+          end
+        else
+          Ext := '.';
+        phiconLarge := GetExtensionIconHandle(Ext, SHGFI_LARGEICON);
+        phiconSmall := GetExtensionIconHandle(Ext, SHGFI_SMALLICON);
+        Result := S_OK;
+      end;
+    ITEM_SEARCH_SORT_HOSTS:
+      begin
+        phiconLarge := GetRessourceIconHandle('OFFLINE_BROWSER');
+        phiconSmall := GetRessourceIconHandle('OFFLINE_BROWSER');
+        Result := S_OK;
+      end;
+  end;
 end;
 
 function TIExtractIconImplWSearchResultsAll.PIDLStructToSearchResult(

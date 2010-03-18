@@ -7,7 +7,7 @@ uses Windows, ShlObj, ActiveX, SysUtils;
 type
   PPIDLStructure = ^TPIDLStructure;
   TPIDLStructure = record
-    ItemType : byte;
+    ItemType : cardinal;
     ItemInfo1 : cardinal;
     ItemInfo2 : cardinal;
     ItemInfo3 : cardinal;
@@ -21,6 +21,7 @@ type
 
 function TPIDLStructure_To_PIDl(input : TPIDLStructure) : PItemIDList;
 function PIDL_To_TPIDLStructure(input : PItemIDList) : TPIDLStructure;
+function ComparePIDLs(p1, p2 : PItemIDList) : Integer;
 
 function PIDLSize(APIDL: PItemIDList): integer;
 function NextID(APIDL: PItemIDList): PItemIDList;
@@ -40,13 +41,15 @@ var
 
 implementation
 
+uses ConstsAndVars;
+
 function TPIDLStructure_To_PIDl(input : TPIDLStructure) : PItemIDList;
 var
   iSize : word;
   bb : ^byte;
   pp : pointer;
 begin
-  iSize := 13 + 2;
+  iSize := 16 + 2;
   pp := FMalloc.Alloc(iSize + 2);
 
   bb := pp;
@@ -55,7 +58,13 @@ begin
   bb^ := (iSize shr 8) and $FF;
 
   inc(bb);
-  bb^ := input.ItemType and $FF;
+  bb^ := (input.ItemType) and $FF;
+  inc(bb);
+  bb^ := (input.ItemType shr 8) and $FF;
+  inc(bb);
+  bb^ := (input.ItemType shr 16) and $FF;
+  inc(bb);
+  bb^ := (input.ItemType shr 24) and $FF;
 
   inc(bb);
   bb^ := (input.ItemInfo1) and $FF;
@@ -102,7 +111,15 @@ begin
   pb := pp;
 
   inc(pb, 2);
-  Result.ItemType := pb^;
+
+  bc := pb^;
+  inc(pb);
+  bc := bc or (pb^ shl 8);
+  inc(pb);
+  bc := bc or (pb^ shl 16);
+  inc(pb);
+  bc := bc or (pb^ shl 24);
+  Result.ItemType := bc;
 
   inc(pb);
   bc := pb^;
@@ -133,6 +150,49 @@ begin
   inc(pb);
   bc := bc or (pb^ shl 24);
   Result.ItemInfo3 := bc;
+end;
+
+function ComparePIDLs(p1, p2 : PItemIDList) : Integer;
+var
+  pidl_struct1, pidl_struct2 : TPIDLStructure;
+  temp_result : Integer;
+begin
+  pidl_struct1 := PIDL_To_TPIDLStructure(GetPointerToLastID(p1));
+  pidl_struct2 := PIDL_To_TPIDLStructure(GetPointerToLastID(p2));
+
+  temp_result := pidl_struct1.ItemType - pidl_struct2.ItemType;
+  if temp_result = 0 then
+    temp_result := pidl_struct1.ItemInfo1 - pidl_struct2.ItemInfo1;
+  if temp_result = 0 then
+    temp_result := pidl_struct1.ItemInfo2 - pidl_struct2.ItemInfo2;
+  if temp_result = 0 then
+    temp_result := pidl_struct1.ItemInfo3 - pidl_struct2.ItemInfo3;
+
+//    case pidl_struct1.ItemType of
+//      ITEM_MAIN_MENU:
+//        temp_result := pidl_struct1.ItemInfo1 - pidl_struct2.ItemInfo1;
+//      ITEM_OFFLINE_BROWSER_FOLDER:
+//        temp_result := pidl_struct1.ItemInfo1 - pidl_struct2.ItemInfo1;
+//      ITEM_OFFLINE_BROWSER_HOST:
+//        temp_result := pidl_struct1.ItemInfo1 - pidl_struct2.ItemInfo1;
+//      ITEM_OFFLINE_BROWSER_SHARE:
+//        temp_result := pidl_struct1.ItemInfo1 - pidl_struct2.ItemInfo1;
+//      ITEM_OFFLINE_BROWSER_FILE:
+//        temp_result := pidl_struct1.ItemInfo1 - pidl_struct2.ItemInfo1;
+//      ITEM_SEARCH_ITEM:
+//        temp_result := pidl_struct1.ItemInfo2 - pidl_struct2.ItemInfo2;
+//      ITEM_SEARCH_SORT_HOSTS:
+//        temp_result := pidl_struct1.ItemInfo2 - pidl_struct2.ItemInfo2;
+//    end;
+//
+//  temp_result := pidl_struct1.ItemInfo1 - pidl_struct2.ItemInfo1;
+
+  if temp_result = 0 then
+    Result := 0
+  else if temp_result < 0 then
+    Result := -1
+  else if temp_result > 0 then
+    Result := 1;
 end;
 
 function NextID(APIDL: PItemIDList): PItemIDList;

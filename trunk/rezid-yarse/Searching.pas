@@ -55,8 +55,11 @@ type
      SearchDate : TDateTime;
      Search_Results : TSearchResultArray;
      VFPhysicalTree : TSearchVFHostArray;
+     VFPhysicalTreeFoldersIndex : TSearchVFFolderArray;
      constructor Create;
      procedure CreateVirtualFolders;
+     function GetVHostByVID(vID : Cardinal) : TSearchVFHost;
+     function FindFolderInIndex(vID : Cardinal) : TSearchVFFolder;
   end;
 
   TSearchEngineCallbackTextInformation = procedure (text : string);
@@ -99,12 +102,15 @@ type
       FName : string;
       FFolders : TSearchVFFolderArray;
       FOnline : boolean;
+      FvID : Integer;
     public
+      property vID : Integer read FvID write FvID;
       property Name : string read FName write FName;
       property Folders : TSearchVFFolderArray read FFolders write FFolders;
       property Online : boolean read FOnline write FOnline;
-      function GetSubFolder(FolderName : string) : TSearchVFFolder;
-      function GetOrCreateSubPath(Path : TStrings) : TSearchVFFolder;
+      function GetSubFolder(FolderName : string) : TSearchVFFolder; overload;
+      function GetSubFolder(vID : Cardinal) : TSearchVFFolder; overload;
+      function GetOrCreateSubPath(Path : TStrings; var vID : Cardinal; var Index : TSearchVFFolderArray) : TSearchVFFolder;
   end;
 
   TSearchVFFolder = class(TObject)
@@ -113,13 +119,16 @@ type
       FSubFolders : TSearchVFFolderArray;
       FItems : TSearchResultArray;
       FIsShare : boolean;
+      FvID : Integer;
     public
+      property vID : Integer read FvID write FvID;
       property Name : string read FName write FName;
       property SubFolders : TSearchVFFolderArray read FSubFolders write FSubFolders;
       property Items : TSearchResultArray read FItems write FItems;
       property IsShare : boolean read FIsShare write FIsShare;
-      function GetSubFolder(FolderName : string) : TSearchVFFolder;
-      function GetOrCreateSubPath(Path : TStrings) : TSearchVFFolder;
+      function GetSubFolder(FolderName : string) : TSearchVFFolder; overload;
+      function GetSubFolder(vID : Cardinal) : TSearchVFFolder; overload;
+      function GetOrCreateSubPath(Path : TStrings; var vID : Cardinal; var Index : TSearchVFFolderArray) : TSearchVFFolder;
   end;
 
 var
@@ -130,7 +139,7 @@ function GetSearchByID(SearchID : Cardinal) : TSearch;
 
 implementation
 
-uses ShellAPI, SysUtils, Dialogs;
+uses ShellAPI, SysUtils, Dialogs, SearchEngineFacade;
 
 function GetSearchByID(SearchID : Cardinal) : TSearch;
 var
@@ -253,6 +262,7 @@ constructor TSearch.Create;
 begin
   inherited;
   VFPhysicalTree := nil;
+  VFPhysicalTreeFoldersIndex := nil;
 end;
 
   function SplitStrings(const str: string; const separator: string;
@@ -315,6 +325,9 @@ var
   aSearchResult : TSearchResult;
   CurrentHost : TSearchVFHost;
   CurrentFolder : TSearchVFFolder;
+  vId, vIDFolder : Cardinal;
+  Facade : IAbstractSearchEngineFacade;
+  OnlineHosts : TOnlineHostList;
 begin
   AList := TList.Create;
   for aSearchResult in Self.Search_Results do
@@ -322,12 +335,17 @@ begin
       AList.Add(aSearchResult);
     end;
   AList.Sort(SearchResultComparePath);
+  vId := 0;
   if AList.Count > 0 then
     begin
+      Facade := GetConcreteSearchEngineFacade;
+      OnlineHosts := Facade.GetCurrentComputerList;
+
       ASplitList := TStringList.Create;
       ASplitList.Delimiter := '\';
       ASplitList.StrictDelimiter := True;
       CurrentHost := nil;
+      vIDFolder := 0;
       for i := 0 to AList.Count - 1 do
         begin
           ASplitList.Clear;
@@ -340,20 +358,56 @@ begin
             begin
               CurrentHost := TSearchVFHost.Create;
               CurrentHost.Name := ASplitList[0];
+              CurrentHost.Online := OnlineHosts.IsHostNameOnline(CurrentHost.Name);
+              Inc(vId);
+              CurrentHost.FvID := vId;
               SetLength(Self.VFPhysicalTree, Length(Self.VFPhysicalTree)+1);
               Self.VFPhysicalTree[Length(Self.VFPhysicalTree)-1] := CurrentHost;
             end;
           ASplitList.Delete(0);
-          CurrentFolder := CurrentHost.GetOrCreateSubPath(ASplitList);
+          CurrentFolder := CurrentHost.GetOrCreateSubPath(ASplitList, vIDFolder, Self.VFPhysicalTreeFoldersIndex);
+          SetLength(CurrentFolder.FItems, Length(CurrentFolder.FItems)+1);
+          CurrentFolder.FItems[Length(CurrentFolder.FItems)-1] := aSearchResult;
         end;
       ASplitList.Free;
     end;
   AList.Free;
 end;
 
+function TSearch.FindFolderInIndex(vID: Cardinal): TSearchVFFolder;
+var
+  i : Cardinal;
+begin
+  Result := nil;
+  if Length(VFPhysicalTreeFoldersIndex) > 0 then
+    for i := 0 to Length(VFPhysicalTreeFoldersIndex) - 1 do
+      begin
+        if TSearchVFFolder(VFPhysicalTreeFoldersIndex[i]).vID = vID then
+          begin
+            Result := TSearchVFFolder(VFPhysicalTreeFoldersIndex[i]);
+            Break;
+          end;
+      end;
+end;
+
+function TSearch.GetVHostByVID(vID: Cardinal): TSearchVFHost;
+var
+  aHost : TSearchVFHost;
+begin
+  Result := nil;
+  for aHost in VFPhysicalTree do
+  begin
+    if aHost.vID = vID then
+      begin
+        Result := aHost;
+        Break;
+      end;
+  end;
+end;
+
 { TSearchVFHost }
 
-function TSearchVFHost.GetOrCreateSubPath(Path: TStrings): TSearchVFFolder;
+function TSearchVFHost.GetOrCreateSubPath(Path: TStrings; var vID : Cardinal; var Index : TSearchVFFolderArray): TSearchVFFolder;
 var
   SubFolder : TSearchVFFolder;
   SubPath : TStrings;
@@ -367,8 +421,12 @@ begin
       SubFolder := TSearchVFFolder.Create;
       SubFolder.Name := Path[0];
       SubFolder.IsShare := True;
+      Inc(vID);
+      SubFolder.vID := vID;
       SetLength(FFolders, Length(Self.FFolders)+1);
       FFolders[Length(Self.FFolders)-1] := SubFolder;
+      SetLength(Index, Length(Index)+1);
+      Index[Length(Index)-1] := SubFolder;
     end;
 
   if Path.Count > 1 then
@@ -376,7 +434,7 @@ begin
       SubPath := TStringList.Create;
       SubPath.Assign(Path);
       SubPath.Delete(0);
-      Result := SubFolder.GetOrCreateSubPath(SubPath);
+      Result := SubFolder.GetOrCreateSubPath(SubPath, vID, Index);
       SubPath.Free;
     end
   else
@@ -399,7 +457,7 @@ begin
     end;
 end;
 
-function TSearchVFFolder.GetOrCreateSubPath(Path: TStrings): TSearchVFFolder;
+function TSearchVFFolder.GetOrCreateSubPath(Path: TStrings; var vID : Cardinal; var Index : TSearchVFFolderArray): TSearchVFFolder;
 var
   SubFolder : TSearchVFFolder;
   SubPath : TStrings;
@@ -412,8 +470,12 @@ begin
     begin
       SubFolder := TSearchVFFolder.Create;
       SubFolder.Name := Path[0];
+      Inc(vID);
+      SubFolder.vID := vID;
       SetLength(FSubFolders, Length(FSubFolders)+1);
       SubFolders[Length(FSubFolders)-1] := SubFolder;
+      SetLength(Index, Length(Index)+1);
+      Index[Length(Index)-1] := SubFolder;
     end;
 
   if Path.Count > 1 then
@@ -421,7 +483,7 @@ begin
       SubPath := TStringList.Create;
       SubPath.Assign(Path);
       SubPath.Delete(0);
-      Result := SubFolder.GetOrCreateSubPath(SubPath);
+      Result := SubFolder.GetOrCreateSubPath(SubPath, vID, Index);
       SubPath.Free;
     end
   else
@@ -439,6 +501,38 @@ begin
         if FSubFolders[i].FName = FolderName then
           begin
             Result := FSubFolders[i];
+            Break;
+          end;
+    end;
+end;
+
+function TSearchVFFolder.GetSubFolder(vID: Cardinal): TSearchVFFolder;
+var
+  i : word;
+begin
+  Result := nil;
+  if Length(FSubFolders) > 0 then
+    begin
+      for i := 0 to Length(FSubFolders) - 1 do
+        if FSubFolders[i].vID = vID then
+          begin
+            Result := FSubFolders[i];
+            Break;
+          end;
+    end;
+end;
+
+function TSearchVFHost.GetSubFolder(vID: Cardinal): TSearchVFFolder;
+var
+  i : word;
+begin
+  Result := nil;
+  if Length(FFolders) > 0 then
+    begin
+      for i := 0 to Length(FFolders) - 1 do
+        if FFolders[i].vID = vID then
+          begin
+            Result := FFolders[i];
             Break;
           end;
     end;

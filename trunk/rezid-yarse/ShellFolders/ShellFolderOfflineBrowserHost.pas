@@ -64,6 +64,8 @@ var
   pidl_struct1, pidl_struct2 : TPIDLStructure;
   temp_result : Integer;
 begin
+  Result := ComparePIDLs(pidl1, pidl2);
+  Exit;
   pidl_struct1 := PIDL_To_TPIDLStructure(GetPointerToLastID(pidl1));
   pidl_struct2 := PIDL_To_TPIDLStructure(GetPointerToLastID(pidl2));
   temp_result := pidl_struct1.ItemInfo1 - pidl_struct2.ItemInfo1;

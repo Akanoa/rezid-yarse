@@ -126,7 +126,9 @@ implementation
 uses ConstsAndVars, SysUtils,
      ShellFolderMainMenu, ShellFolderOfflineBrowserRoot,
      ShellFolderOfflineBrowserHost, ShellFolderOfflineBrowserFolder,
-     ShellFolderNewSearch, ShellFolderSearchResults;
+     ShellFolderNewSearch, ShellFolderSearchResults,
+     ShellFolderSearchResultsHostsRoot, ShellFolderSearchResultsHostsHost,
+     ShellFolderSearchResultsHostsFolder;
 
 function GetPIDLShellFolderD(pidl : PITEMIDLIST) : TShellFolderD;
 var
@@ -151,6 +153,12 @@ begin
     ITEM_OFFLINE_BROWSER_SHARE,
     ITEM_OFFLINE_BROWSER_FOLDER :
       Result := TShellFolderOfflineBrowserFolder.Create(pidl_structure);
+    ITEM_SEARCH_SORT_HOSTS:
+      Result := TShellFolderSearchResultsHostsRoot.Create(pidl_structure);
+    ITEM_SEARCH_SORT_HOSTS_HOST:
+      Result := TShellFolderSearchResultsHostsHost.Create(pidl_structure);
+    ITEM_SEARCH_SORT_HOSTS_FOLDER:
+      Result := TShellFolderSearchResultsHostsFolder.Create(pidl_structure);
   end;
 end;
 
@@ -288,7 +296,7 @@ end;
 function TIContextMenuImpl.GetCommandString(idCmd, uType: Cardinal;
   pwReserved: PUINT; pszName: PAnsiChar; cchMax: Cardinal): HRESULT;
 begin
-  OutputDebugString3('TIContextMenuImpl.GetCommandString');
+//  OutputDebugString3('TIContextMenuImpl.GetCommandString');
   Result := E_NOTIMPL;
 end;
 
@@ -308,13 +316,13 @@ var
   ShellBrowser : IShellBrowser;
   ServiceProvider : IServiceProvider;
 begin
-  OutputDebugString3('TIContextMenuImpl.InvokeCommand');
+//  OutputDebugString3('TIContextMenuImpl.InvokeCommand');
   if HiWord(Integer(lpici.lpVerb)) <> 0 then
   begin
     Result := E_FAIL;
     Exit;
   end;
-  OutputDebugString3('Quering number '+inttostr(LoWord(lpici.lpVerb)));
+//  OutputDebugString3('Quering number '+inttostr(LoWord(lpici.lpVerb)));
   amii := FPopupMenu.FindItemByIDInMenu(LoWord(lpici.lpVerb));
   if Assigned(amii) then
     begin
@@ -354,7 +362,7 @@ var
   count : word;
   MenuItemInfo : tagMENUITEMINFO;
 begin
-  OutputDebugString3('TIContextMenuImpl.QueryContextMenu');
+  //OutputDebugString3('TIContextMenuImpl.QueryContextMenu');
   count := 0;
   for aMenuItem in FPopupMenu.Items do
   begin
@@ -377,7 +385,7 @@ end;
 
 function TIContextMenuImpl.SetSite(const pUnkSite: IInterface): HRESULT;
 begin
-  OutputDebugString3('TIContextMenuImpl.SetSite');
+  //OutputDebugString3('TIContextMenuImpl.SetSite');
   Site := pUnkSite;
   Result := S_OK;
 end;

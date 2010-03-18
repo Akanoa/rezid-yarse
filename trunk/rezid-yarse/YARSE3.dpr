@@ -43,7 +43,10 @@ uses
   ShellFolderOfflineBrowserFolder in 'ShellFolders\ShellFolderOfflineBrowserFolder.pas',
   ShellIcons in 'ShellIcons.pas',
   ShellFolderNewSearch in 'ShellFolders\ShellFolderNewSearch.pas',
-  ShellFolderSearchResults in 'ShellFolders\ShellFolderSearchResults.pas';
+  ShellFolderSearchResults in 'ShellFolders\ShellFolderSearchResults.pas',
+  ShellFolderSearchResultsHostsFolder in 'ShellFolders\ShellFolderSearchResultsHostsFolder.pas',
+  ShellFolderSearchResultsHostsRoot in 'ShellFolders\ShellFolderSearchResultsHostsRoot.pas',
+  ShellFolderSearchResultsHostsHost in 'ShellFolders\ShellFolderSearchResultsHostsHost.pas';
 
 {$R *.res}
 {$R AdditionalRessources.res}
