@@ -1,4 +1,4 @@
-unit ShellFolderSearchResults;
+unit ShellFolderSearchResultsTypesType;
 
 interface
 
@@ -6,21 +6,22 @@ uses Classes, ShellFolderD, PIDLs, ShlObj, Windows, Graphics, Menus, OfflineBrow
      Forms, Searching, ShellFolderView;
 
 type
-  TIExtractIconImplWSearchResultsAll = class(TIExtractIconImplW)
+  TIExtractIconImplWSearchResultsTypesType = class(TIExtractIconImplW)
     protected
       FSearch : TSearch;
+      FType : TSearchVFFileType;
       function PIDLStructToSearchResult(PIDLStruct : TPIDLStructure) : TSearchResult;
     public
-      constructor Create(pidl : PItemIDList; Search : TSearch);
+      constructor Create(pidl : PItemIDList; Search : TSearch; Folder : TSearchVFFileType);
       function Extract(pszFile: PWideChar; nIconIndex: Cardinal; out phiconLarge: HICON; out phiconSmall: HICON; nIconSize: Cardinal): HRESULT; override; stdcall;
   end;
 
-  TShellFolderSearchResultsAll = class(TShellFolderD)
+  TShellFolderSearchResultsTypesType = class(TShellFolderD)
     private
       FSearch : TSearch;
+      FType : TSearchVFFileType;
       FPIDLListAll : TList;
-      FPIDLListFolders : TList;
-      ExtractIcon : TIExtractIconImplWSearchResultsAll;
+      ExtractIcon : TIExtractIconImplWSearchResultsTypesType;
       procedure RebuildPIDLList;
       function PIDLStructToSearchResult(PIDLStruct : TPIDLStructure) : TSearchResult;
     public
@@ -40,7 +41,7 @@ type
       constructor Create(PIDL: TPIDLStructure); override;
   end;
 
-  TEnumIDListSearchResultsAll = class(TEnumIDListD)
+  TEnumIDListSearchResultsTypesType = class(TEnumIDListD)
     private
       FIndex: integer;
     protected
@@ -50,7 +51,7 @@ type
       function Clone(out ppenum: IEnumIDList): HResult; override; stdcall;
   end;
 
-  TIContextMenuImplSearchResultsAll = class(TIContextMenuImpl)
+  TIContextMenuImplSearchResultsTypesType = class(TIContextMenuImpl)
   public
     procedure PopulateItems; override;
   end;
@@ -59,16 +60,14 @@ implementation
 
 uses ConstsAndVars, Dialogs, Sysutils, CommCtrl, ShellFolder, ShellIcons, ShellAPI;
 
-{ TShellFolderSearchResultsAll }
+{ TShellFolderSearchResultsTypesType }
 
-function TShellFolderSearchResultsAll.CompareIDs(pidl1,
+function TShellFolderSearchResultsTypesType.CompareIDs(pidl1,
   pidl2: PItemIDList): Integer;
 var
   pidl_struct1, pidl_struct2 : TPIDLStructure;
   temp_result : Integer;
 begin
-  Result := ComparePIDLs(pidl1, pidl2);
-  Exit;
   pidl_struct1 := PIDL_To_TPIDLStructure(GetPointerToLastID(pidl1));
   pidl_struct2 := PIDL_To_TPIDLStructure(GetPointerToLastID(pidl2));
   temp_result := pidl_struct1.ItemInfo1 - pidl_struct2.ItemInfo1;
@@ -82,44 +81,43 @@ begin
     Result := 1;
 end;
 
-constructor TShellFolderSearchResultsAll.Create(PIDL: TPIDLStructure);
+constructor TShellFolderSearchResultsTypesType.Create(PIDL: TPIDLStructure);
 begin
   inherited;
-  OutputDebugStringFoldersD('TShellFolderSearchResultsAll.Create');
+  OutputDebugStringFoldersD('TShellFolderSearchResultsTypesType.Create');
   FPIDLListAll := TList.Create;
-  FPIDLListFolders := TList.Create;
-  FSearch := GetSearchByID(PIDL.ItemInfo2);
+  FSearch := GetSearchByID(PIDL.ItemInfo1);
   if not Assigned(FSearch) then
     begin
       FSearch := TSearch.Create;
     end;
+  FType := FSearch.GetVTypeByVID(PIDL.ItemInfo2);
+  if not Assigned(FType) then
+    FType := TSearchVFFileType.Create;
+//  OutputDebugString3('creating folder: '+inttostr(PIDL.ItemInfo2)+' content: '+inttostr(Length(FType.Items))+' items '+inttostr(Length(FType.SubFolders))+' sf');
   ExtractIcon := nil;
 end;
 
-destructor TShellFolderSearchResultsAll.Destroy;
+destructor TShellFolderSearchResultsTypesType.Destroy;
 begin
-  OutputDebugStringFoldersD('TShellFolderSearchResultsAll.Destroy');
-  FPIDLListFolders.Free;
+  OutputDebugStringFoldersD('TShellFolderSearchResultsTypesType.Destroy');
   FPIDLListAll.Free;
   inherited;
 end;
 
-function TShellFolderSearchResultsAll.EnumObjects(grfFlags: DWORD): IEnumIDList;
+function TShellFolderSearchResultsTypesType.EnumObjects(grfFlags: DWORD): IEnumIDList;
 begin
-  OutputDebugStringFoldersD('TShellFolderSearchResultsAll.EnumObjects');
+  OutputDebugStringFoldersD('TShellFolderSearchResultsTypesType.EnumObjects');
   RebuildPIDLList;
-  if grfFlags and SHCONTF_NONFOLDERS = SHCONTF_NONFOLDERS then
-    Result := TEnumIDListSearchResultsAll.Create(FPIDLListAll, grfFlags)
-  else
-    Result := TEnumIDListSearchResultsAll.Create(FPIDLListFolders, grfFlags);
+  Result := TEnumIDListSearchResultsTypesType.Create(FPIDLListAll, grfFlags);
   Result.Reset;
 end;
 
-function TShellFolderSearchResultsAll.GetAttributesOf(apidl: PItemIDList): UINT;
+function TShellFolderSearchResultsTypesType.GetAttributesOf(apidl: PItemIDList): UINT;
 var
   aPIDLStructure : TPIDLStructure;
 begin
-  OutputDebugStringFoldersD('TShellFolderSearchResultsAll.GetAttributesOf');
+  OutputDebugStringFoldersD('TShellFolderSearchResultsTypesType.GetAttributesOf');
   Result := SFGAO_READONLY;
   aPIDLStructure := PIDL_To_TPIDLStructure(apidl);
   case aPIDLStructure.ItemType of
@@ -127,42 +125,35 @@ begin
       begin
         //Rien
       end;
-    ITEM_SEARCH_SORT_HOSTS:
-      begin
-        Result := Result or SFGAO_FOLDER or SFGAO_HASSUBFOLDER or SFGAO_BROWSABLE;
-      end;
-    ITEM_SEARCH_SORT_TYPES:
-      begin
-        Result := Result or SFGAO_FOLDER or SFGAO_HASSUBFOLDER or SFGAO_BROWSABLE;
-      end;
   end;
 end;
 
-function TShellFolderSearchResultsAll.GetDefaultColumn(var pSort,
+function TShellFolderSearchResultsTypesType.GetDefaultColumn(var pSort,
   pDisplay: Cardinal): HRESULT;
 begin
-  OutputDebugStringFoldersD('TShellFolderSearchResultsAll.GetDefaultColumn');
+  OutputDebugStringFoldersD('TShellFolderSearchResultsTypesType.GetDefaultColumn');
   pSort := 0;
   pDisplay := 0;
   Result := S_OK;
 end;
 
-function TShellFolderSearchResultsAll.GetDefaultColumnState(iColumn: Cardinal;
+function TShellFolderSearchResultsTypesType.GetDefaultColumnState(iColumn: Cardinal;
   var pcsFlags: Cardinal): HRESULT;
 begin
-  OutputDebugStringFoldersD('TShellFolderSearchResultsAll.GetDefaultColumnState');
+  OutputDebugStringFoldersD('TShellFolderSearchResultsTypesType.GetDefaultColumnState');
   pcsFlags := SHCOLSTATE_TYPE_STR or SHCOLSTATE_ONBYDEFAULT;
   Result := S_OK;
 end;
 
-function TShellFolderSearchResultsAll.GetDetailsOf(pidl: PItemIDList; iColumn: Cardinal;
+function TShellFolderSearchResultsTypesType.GetDetailsOf(pidl: PItemIDList; iColumn: Cardinal;
   var psd: _SHELLDETAILS): HRESULT;
 var
   sString : string;
   aPIDLStructure : TPIDLStructure;
   aSearchResult : TSearchResult;
+  aFolder : TSearchVFFileType;
 begin
-  OutputDebugStringFoldersD('TShellFolderSearchResultsAll.GetDetailsOf');
+  OutputDebugStringFoldersD('TShellFolderSearchResultsTypesType.GetDetailsOf');
   if iColumn > 3 then
     begin
       Result := E_INVALIDARG;
@@ -187,24 +178,6 @@ begin
                 end;
               end;
           end;
-        ITEM_SEARCH_SORT_HOSTS:
-          begin
-            case iColumn of
-              0: sString := 'Arborescence par hôtes';
-              1: sString := '';
-              2: sString := '';
-              3: sString := '';
-            end;
-          end;
-        ITEM_SEARCH_SORT_TYPES:
-          begin
-            case iColumn of
-              0: sString := 'Arborescence par types';
-              1: sString := '';
-              2: sString := '';
-              3: sString := '';
-            end;
-          end;
       end;
       end
   else
@@ -223,13 +196,13 @@ begin
   Result := S_OK;
 end;
 
-function TShellFolderSearchResultsAll.GetDisplayNameOf(pidl: PItemIDList;
+function TShellFolderSearchResultsTypesType.GetDisplayNameOf(pidl: PItemIDList;
   uFlags: DWORD): string;
 var
   aPIDLStructure : TPIDLStructure;
   aSearchResult : TSearchResult;
 begin
-  OutputDebugStringFoldersD('TShellFolderSearchResultsAll.GetDisplayNameOf');
+  OutputDebugStringFoldersD('TShellFolderSearchResultsTypesType.GetDisplayNameOf');
   Result := 'Fichier ou dossier inconnu';
   aPIDLStructure := PIDL_To_TPIDLStructure(pidl);
   case aPIDLStructure.ItemType of
@@ -241,51 +214,45 @@ begin
             Result := aSearchResult.Name;
           end;
       end;
-    ITEM_SEARCH_SORT_HOSTS:
-      begin
-        Result := 'Arborescence par hôtes';
-      end;
-    ITEM_SEARCH_SORT_TYPES:
-      begin
-        Result := 'Arborescence par types';
-      end;
   end;
 end;
 
-function TShellFolderSearchResultsAll.GetExtractIconImplW(pidl:PItemIDList): IExtractIconW;
+function TShellFolderSearchResultsTypesType.GetExtractIconImplW(pidl:PItemIDList): IExtractIconW;
 begin
-  Result := TIExtractIconImplWSearchResultsAll.Create(pidl, FSearch);
-  ExtractIcon := TIExtractIconImplWSearchResultsAll(Result);
+  Result := TIExtractIconImplWSearchResultsTypesType.Create(pidl, FSearch, FType);
+  ExtractIcon := TIExtractIconImplWSearchResultsTypesType(Result);
 end;
 
-function TShellFolderSearchResultsAll.GetIContextMenuImpl(
+function TShellFolderSearchResultsTypesType.GetIContextMenuImpl(
   pidl: PItemIDList): TIContextMenuImpl;
 begin
-  Result := TIContextMenuImplSearchResultsAll.Create(pidl);
+  Result := TIContextMenuImplSearchResultsTypesType.Create(pidl);
 end;
 
-function TShellFolderSearchResultsAll.GetViewForm: TShellViewForm;
+function TShellFolderSearchResultsTypesType.GetViewForm: TShellViewForm;
 begin
   Result := nil;
 end;
 
-function TShellFolderSearchResultsAll.PIDLStructToSearchResult(
+function TShellFolderSearchResultsTypesType.PIDLStructToSearchResult(
   PIDLStruct: TPIDLStructure): TSearchResult;
 begin
   Result := nil;
   if PIDLStruct.ItemInfo1 <> FSearch.Search_ID then
     Exit;
-  if PIDLStruct.ItemInfo2 >= Length(FSearch.Search_Results) then
+  if PIDLStruct.ItemInfo2 <> FType.vID then
     Exit;
-  Result := FSearch.Search_Results[PIDLStruct.ItemInfo2];
+  if PIDLStruct.ItemInfo3 >= Length(FType.Items) then
+    Exit;
+  Result := FType.Items[PIDLStruct.ItemInfo3];
 end;
 
-function TEnumIDListSearchResultsAll.Clone(out ppenum: IEnumIDList): HResult;
+function TEnumIDListSearchResultsTypesType.Clone(out ppenum: IEnumIDList): HResult;
 begin
   Result := E_NOTIMPL;
 end;
 
-function TEnumIDListSearchResultsAll.Next(celt: ULONG; out rgelt: PItemIDList;
+function TEnumIDListSearchResultsTypesType.Next(celt: ULONG; out rgelt: PItemIDList;
   var pceltFetched: ULONG): HResult;
 begin
   rgelt := nil;
@@ -311,60 +278,59 @@ begin
     end;
 end;
 
-function TEnumIDListSearchResultsAll.Reset: HResult;
+function TEnumIDListSearchResultsTypesType.Reset: HResult;
 begin
   FIndex := 0;
   Result := S_OK;
 end;
 
-function TEnumIDListSearchResultsAll.Skip(celt: ULONG): HResult;
+function TEnumIDListSearchResultsTypesType.Skip(celt: ULONG): HResult;
 begin
   Inc(FIndex, celt);
   Result := S_OK
 end;
 
-procedure TShellFolderSearchResultsAll.RebuildPIDLList;
+procedure TShellFolderSearchResultsTypesType.RebuildPIDLList;
 var
   aPidlStructure : TPIDLStructure;
   i : word;
+  aFolder : TSearchVFFileType;
 begin
-  OutputDebugStringFoldersD('TShellFolderSearchResultsAll.RebuildPIDLList');
+  OutputDebugStringFoldersD('TShellFolderSearchResultsTypesType.RebuildPIDLList');
   FPIDLListAll.Clear;
 
-  aPidlStructure.ItemType := ITEM_SEARCH_SORT_HOSTS;
-  aPidlStructure.ItemInfo1 := FSearch.Search_ID;
-  aPidlStructure.ItemInfo2 := 0;
-  FPIDLListAll.Add(TPIDLStructure_To_PIDl(aPidlStructure));
-
-  aPidlStructure.ItemType := ITEM_SEARCH_SORT_TYPES;
-  aPidlStructure.ItemInfo1 := FSearch.Search_ID;
-  aPidlStructure.ItemInfo2 := 0;
-  FPIDLListAll.Add(TPIDLStructure_To_PIDl(aPidlStructure));
-
-  if Length(FSearch.Search_Results) > 0 then
+  if Length(FType.Items) > 0 then
     begin
-      for i := 0 to Length(FSearch.Search_Results) - 1 do
+      for i := 0 to Length(FType.Items) - 1 do
         begin
-          aPidlStructure.ItemType := ITEM_SEARCH_ITEM;
-          aPidlStructure.ItemInfo1 := FSearch.Search_ID;
-          aPidlStructure.ItemInfo2 := i;
-          FPIDLListAll.Add(TPIDLStructure_To_PIDl(aPidlStructure));
+          case FType.Items[i].ItemType of
+            itFile:
+              begin
+//                OutputDebugString3('Inserting file '+inttostr(i));
+                aPidlStructure.ItemType := ITEM_SEARCH_ITEM;
+                aPidlStructure.ItemInfo1 := FSearch.Search_ID;
+                aPidlStructure.ItemInfo2 := FType.vID;
+                aPidlStructure.ItemInfo3 := i;
+                FPIDLListAll.Add(TPIDLStructure_To_PIDl(aPidlStructure));
+              end;
+          end;
         end;
     end;
 end;
 
-{ TIExtractIconImplWSearchResultsAll }
+{ TIExtractIconImplWSearchResultsTypesType }
 
-constructor TIExtractIconImplWSearchResultsAll.Create(pidl : PItemIDList; Search : TSearch);
+constructor TIExtractIconImplWSearchResultsTypesType.Create(pidl : PItemIDList; Search : TSearch; Folder : TSearchVFFileType);
 var
   aPIDLStructure : TPIDLStructure;
 begin
   inherited Create(pidl);
   aPIDLStructure := PIDL_To_TPIDLStructure(pidl);
   Self.FSearch := Search;
+  Self.FType := Folder;
 end;
 
-function TIExtractIconImplWSearchResultsAll.Extract(pszFile: PWideChar;
+function TIExtractIconImplWSearchResultsTypesType.Extract(pszFile: PWideChar;
   nIconIndex: Cardinal; out phiconLarge, phiconSmall: HICON;
   nIconSize: Cardinal): HRESULT;
 var
@@ -389,36 +355,32 @@ begin
         phiconSmall := GetExtensionIconHandle(Ext, SHGFI_SMALLICON);
         Result := S_OK;
       end;
-    ITEM_SEARCH_SORT_HOSTS:
+    ITEM_SEARCH_SORT_HOSTS_FOLDER:
       begin
-        phiconLarge := GetRessourceIconHandle('OFFLINE_BROWSER');
-        phiconSmall := GetRessourceIconHandle('OFFLINE_BROWSER');
-        Result := S_OK;
-      end;
-    ITEM_SEARCH_SORT_TYPES:
-      begin
-        phiconLarge := GetRessourceIconHandle('SEARCH_SORTTYPES');
-        phiconSmall := GetRessourceIconHandle('SEARCH_SORTTYPES');
+        phiconLarge := GetDirectoryIconHandle(SHGFI_LARGEICON);
+        phiconSmall := GetDirectoryIconHandle(SHGFI_SMALLICON);
         Result := S_OK;
       end;
   end;
 end;
 
-function TIExtractIconImplWSearchResultsAll.PIDLStructToSearchResult(
+function TIExtractIconImplWSearchResultsTypesType.PIDLStructToSearchResult(
   PIDLStruct: TPIDLStructure): TSearchResult;
 begin
   Result := nil;
   if PIDLStruct.ItemInfo1 <> FSearch.Search_ID then
     Exit;
-  if PIDLStruct.ItemInfo2 >= Length(FSearch.Search_Results) then
+  if PIDLStruct.ItemInfo2 <> FType.vID then
     Exit;
-  Result := FSearch.Search_Results[PIDLStruct.ItemInfo2];
+  if PIDLStruct.ItemInfo3 >= Length(FType.Items) then
+    Exit;
+  Result := FType.Items[PIDLStruct.ItemInfo3];
 end;
 
 
-{ TIContextMenuImplSearchResultsAll }
+{ TIContextMenuImplSearchResultsTypesType }
 
-procedure TIContextMenuImplSearchResultsAll.PopulateItems;
+procedure TIContextMenuImplSearchResultsTypesType.PopulateItems;
 var
   pmi : TMenuItemIdentified;
 begin

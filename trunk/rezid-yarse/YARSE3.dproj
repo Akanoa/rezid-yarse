@@ -69,6 +69,8 @@
 			<DCCReference Include="ShellFolders\ShellFolderSearchResultsHostsFolder.pas"/>
 			<DCCReference Include="ShellFolders\ShellFolderSearchResultsHostsRoot.pas"/>
 			<DCCReference Include="ShellFolders\ShellFolderSearchResultsHostsHost.pas"/>
+			<DCCReference Include="ShellFolders\ShellFolderSearchResultsTypesRoot.pas"/>
+			<DCCReference Include="ShellFolders\ShellFolderSearchResultsTypesType.pas"/>
 			<BuildConfiguration Include="Base">
 				<Key>Base</Key>
 			</BuildConfiguration>

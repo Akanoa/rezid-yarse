@@ -46,7 +46,9 @@ uses
   ShellFolderSearchResults in 'ShellFolders\ShellFolderSearchResults.pas',
   ShellFolderSearchResultsHostsFolder in 'ShellFolders\ShellFolderSearchResultsHostsFolder.pas',
   ShellFolderSearchResultsHostsRoot in 'ShellFolders\ShellFolderSearchResultsHostsRoot.pas',
-  ShellFolderSearchResultsHostsHost in 'ShellFolders\ShellFolderSearchResultsHostsHost.pas';
+  ShellFolderSearchResultsHostsHost in 'ShellFolders\ShellFolderSearchResultsHostsHost.pas',
+  ShellFolderSearchResultsTypesRoot in 'ShellFolders\ShellFolderSearchResultsTypesRoot.pas',
+  ShellFolderSearchResultsTypesType in 'ShellFolders\ShellFolderSearchResultsTypesType.pas';
 
 {$R *.res}
 {$R AdditionalRessources.res}

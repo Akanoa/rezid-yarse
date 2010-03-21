@@ -106,10 +106,12 @@ var
   pp : pointer;
   pb : ^byte;
   bc : cardinal;
+  buffer_result : TPIDLStructure;
 begin
   pp := input;
   pb := pp;
 
+  //SizeOf PIDL
   inc(pb, 2);
 
   bc := pb^;

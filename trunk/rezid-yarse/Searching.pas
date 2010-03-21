@@ -17,6 +17,8 @@ type
   TSearchVFFolderArray = array of TSearchVFFolder;
   TSearchVFHost = class;
   TSearchVFHostArray = array of TSearchVFHost;
+  TSearchVFFileType = class;
+  TSearchVFFileTypeArray = array of TSearchVFFileType;
 
   TSearchIn = (siEveryFile, siFolders, siVideo, siAudio, siImage);
   TSearchInEnum = set of TSearchIn;
@@ -56,10 +58,12 @@ type
      Search_Results : TSearchResultArray;
      VFPhysicalTree : TSearchVFHostArray;
      VFPhysicalTreeFoldersIndex : TSearchVFFolderArray;
+     VFFileTypes : TSearchVFFileTypeArray;
      constructor Create;
      procedure CreateVirtualFolders;
      function GetVHostByVID(vID : Cardinal) : TSearchVFHost;
      function FindFolderInIndex(vID : Cardinal) : TSearchVFFolder;
+     function GetVTypeByVID(vID : Cardinal) : TSearchVFFileType;
   end;
 
   TSearchEngineCallbackTextInformation = procedure (text : string);
@@ -111,6 +115,19 @@ type
       function GetSubFolder(FolderName : string) : TSearchVFFolder; overload;
       function GetSubFolder(vID : Cardinal) : TSearchVFFolder; overload;
       function GetOrCreateSubPath(Path : TStrings; var vID : Cardinal; var Index : TSearchVFFolderArray) : TSearchVFFolder;
+  end;
+
+  TSearchVFFileType = class(TObject)
+    protected
+      FName : string;
+      FItems : TSearchResultArray;
+      FAExt : string;
+      FvID : Integer;
+    public
+      property vID : Integer read FvID write FvID;
+      property Name : string read FName write FName;
+      property AExt : string read FAExt write FAExt;
+      property Items : TSearchResultArray read FItems write FItems;
   end;
 
   TSearchVFFolder = class(TObject)
@@ -307,6 +324,15 @@ begin
   Result := CompareStr(Path1, Path2);
 end;
 
+function SearchResultCompareType(Item1, Item2: Pointer): Integer;
+var
+  Type1, Type2 : string;
+begin
+  Type1 := TSearchResult(Item1).FileType;
+  Type2 := TSearchResult(Item2).FileType;
+  Result := CompareStr(Type1, Type2);
+end;
+
 procedure TSearch.CreateVirtualFolders;
   procedure RemoveEmptyLines(var sl : TStrings);
   var
@@ -328,12 +354,14 @@ var
   vId, vIDFolder : Cardinal;
   Facade : IAbstractSearchEngineFacade;
   OnlineHosts : TOnlineHostList;
+  CurrentFileType : TSearchVFFileType;
 begin
   AList := TList.Create;
   for aSearchResult in Self.Search_Results do
     begin
       AList.Add(aSearchResult);
     end;
+  //Physical Tree
   AList.Sort(SearchResultComparePath);
   vId := 0;
   if AList.Count > 0 then
@@ -371,6 +399,31 @@ begin
         end;
       ASplitList.Free;
     end;
+
+  //Type tree
+  AList.Sort(SearchResultCompareType);
+  vId := 0;
+  CurrentFileType := nil;
+  if AList.Count > 0 then
+    begin
+      for i := 0 to AList.Count - 1 do
+        begin
+          aSearchResult := aList[i];
+          if (not Assigned(CurrentFileType)) or (CurrentFileType.FName <> aSearchResult.FileType) then
+            begin
+              CurrentFileType := TSearchVFFileType.Create;
+              Inc(vId);
+              CurrentFileType.vID := vId;
+              CurrentFileType.FName := aSearchResult.FileType;
+              CurrentFileType.AExt := ExtractFileExt(aSearchResult.FName);
+              SetLength(Self.VFFileTypes, Length(Self.VFFileTypes)+1);
+              Self.VFFileTypes[Length(Self.VFFileTypes)-1] := CurrentFileType;
+            end;
+          SetLength(CurrentFileType.FItems, Length(CurrentFileType.FItems)+1);
+          CurrentFileType.FItems[Length(CurrentFileType.FItems)-1] := aSearchResult;
+        end;
+    end;
+
   AList.Free;
 end;
 
@@ -400,6 +453,21 @@ begin
     if aHost.vID = vID then
       begin
         Result := aHost;
+        Break;
+      end;
+  end;
+end;
+
+function TSearch.GetVTypeByVID(vID: Cardinal): TSearchVFFileType;
+var
+  aType : TSearchVFFileType;
+begin
+  Result := nil;
+  for aType in VFFileTypes do
+  begin
+    if aType.vID = vID then
+      begin
+        Result := aType;
         Break;
       end;
   end;
