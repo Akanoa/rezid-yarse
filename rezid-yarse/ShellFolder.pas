@@ -18,7 +18,7 @@ const
      CLSID_CustomShellFolder:TGUID='{822B56D4-2343-4C1C-B816-09EB10E6F081}';
 
 type
-   TCustomShellFolder=class(TComObject, IShellFolder, IShellFolder2, IPersistFolder, IPersistFolder2, IPersistIDList)
+   TCustomShellFolder = class(TComObject, IShellFolder, IShellFolder2, IPersistFolder, IPersistFolder2, IPersistIDList, IShellFolderViewCB)
    private
      FShellFolderD : TShellFolderD;
    protected
@@ -78,6 +78,9 @@ type
       {IPersistIDList}
       function GetIDList(var pidl: PItemIDList): HRESULT; stdcall;
       function SetIDList(pidl: PItemIDList): HRESULT; stdcall;
+
+      {IShellFolderViewCB}
+      function MessageSFVCB(uMsg: Cardinal; WParam: Integer; LParam: Integer): HRESULT; stdcall;
 
       constructor Create(dShellFolderD : TShellFolderD);
       destructor Destroy; override;
@@ -258,7 +261,7 @@ begin
       else
         begin
           CreateData.dwSize := SizeOf(CreateData);
-          CreateData.pfnCallback := nil;
+          CreateData.pfnCallback := Self as IShellFolderViewCB;
           CreateData.pShellFolder := Self as IShellFolder;
           CreateData.psvOuter := nil;
           Result := SHCreateShellFolderView(CreateData, LocalView);
@@ -363,6 +366,22 @@ begin
 //  pscid.fmtid := StringToGUID('{B725F130-47EF-101A-A5F1-02608C9EEBAC}');
 //  pscid.pid := 10;
 //  Result := E_NOTIMPL;
+end;
+
+function TCustomShellFolder.MessageSFVCB(uMsg: Cardinal; WParam,  LParam: Integer): HRESULT;
+var
+  PI : ^Integer;
+begin
+  Result := E_NOTIMPL;
+  OutputDebugString3('TCustomShellFolder.MessageSFVCB '+inttostr(uMsg));
+  case uMsg of
+    SFVM_DEFVIEWMODE:
+      begin
+        PI := Addr(LParam);
+        PI^ := FVM_SMALLICON;
+        Result := S_OK;
+      end;
+  end;
 end;
 
 function TCustomShellFolder.GetDisplayNameOf(pidl:PItemIDList;uFlags:DWORD;

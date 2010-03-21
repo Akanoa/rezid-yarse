@@ -19,6 +19,7 @@ var
   IconOB_Share : TIcon;
   IconOfflineBrowser : TIcon;
   Icon_SearchFolder : TIcon;
+  Icon_SearchSortTypes : TIcon;
   IconYARSE : TIcon;
   IconSEARCH : TIcon;
 
@@ -81,6 +82,9 @@ begin
 
       Icon_SearchFolder := TIcon.Create;
       Icon_SearchFolder.LoadFromResourceName(LibHandle, 'SEARCH_FOLDER');
+
+      Icon_SearchSortTypes := TIcon.Create;
+      Icon_SearchSortTypes.LoadFromResourceName(LibHandle, 'SEARCH_SORTTYPES');
     end;
   finally
     CloseHandle(LibHandle);
@@ -155,7 +159,9 @@ begin
   else if RessourceName = 'SEARCH_FOLDER' then
     Result := Icon_SearchFolder.Handle
   else if RessourceName = 'YARSE' then
-    Result := IconYARSE.Handle;
+    Result := IconYARSE.Handle
+  else if RessourceName = 'SEARCH_SORTTYPES' then
+    Result := Icon_SearchSortTypes.Handle;
 end;
 
 function GetIconIndex(Extension: String; Attribus: DWORD;

@@ -128,7 +128,8 @@ uses ConstsAndVars, SysUtils,
      ShellFolderOfflineBrowserHost, ShellFolderOfflineBrowserFolder,
      ShellFolderNewSearch, ShellFolderSearchResults,
      ShellFolderSearchResultsHostsRoot, ShellFolderSearchResultsHostsHost,
-     ShellFolderSearchResultsHostsFolder;
+     ShellFolderSearchResultsHostsFolder, ShellFolderSearchResultsTypesRoot,
+     ShellFolderSearchResultsTypesType;
 
 function GetPIDLShellFolderD(pidl : PITEMIDLIST) : TShellFolderD;
 var
@@ -159,6 +160,10 @@ begin
       Result := TShellFolderSearchResultsHostsHost.Create(pidl_structure);
     ITEM_SEARCH_SORT_HOSTS_FOLDER:
       Result := TShellFolderSearchResultsHostsFolder.Create(pidl_structure);
+    ITEM_SEARCH_SORT_TYPES:
+      Result := TShellFolderSearchTypesRoot.Create(pidl_structure);
+    ITEM_SEARCH_SORT_TYPES_TYPE:
+      Result := TShellFolderSearchResultsTypesType.Create(pidl_structure);
   end;
 end;
 

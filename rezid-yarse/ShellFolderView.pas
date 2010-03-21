@@ -20,8 +20,12 @@ type
   [SID_IShellFolderViewCB]
     function MessageSFVCB(uMsg: UINT; WParam: WPARAM; LParam: LPARAM): HRESULT; stdcall;
   end;
+const
+  {$EXTERNALSYM SFVM_DEFVIEWMODE}
+  SFVM_DEFVIEWMODE =  27;    // <not used> : FOLDERVIEWMODE*
 
-  TShellViewCreate = packed record
+type
+  TShellViewCreate = record
     dwSize: DWORD;
     pShellFolder: IShellFolder;
     psvOuter: IShellView;
