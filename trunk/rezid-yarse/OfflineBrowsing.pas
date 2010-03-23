@@ -421,12 +421,14 @@ begin
   if not Self.ContentFetched then
     Exit;
   if length(Self.FSubFolders) > 0 then
-    for i := 0 to length(self.Files) - 1 do
-      if TOfflineBrowserFolder(Self.FSubFolders[i]).Id = FolderID then
-        begin
-          Result := Self.FSubFolders[i];
-          Break;
-        end;
+    for i := 0 to length(self.FSubFolders) - 1 do
+      begin
+        if TOfflineBrowserFolder(Self.FSubFolders[i]).Id = FolderID then
+          begin
+            Result := Self.FSubFolders[i];
+            Break;
+          end;
+      end;
 end;
 
 initialization

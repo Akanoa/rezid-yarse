@@ -72,7 +72,7 @@ end;
 
 procedure OutputDebugString3(m : string);
 begin
-  OutputDebugString(PWideChar(m));
+//  OutputDebugString(PWideChar(m));
 end;
 
 procedure OutputDebugStringFoldersD(m : string);
